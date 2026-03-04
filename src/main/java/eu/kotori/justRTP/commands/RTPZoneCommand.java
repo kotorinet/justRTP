@@ -19,14 +19,32 @@ public class RTPZoneCommand implements CommandExecutor {
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label,
+            @NotNull String[] args) {
+        if (!plugin.getConfig().getBoolean("rtpzone_command.enabled", true)) {
+            plugin.getLocaleManager().sendMessage(sender, "command.no_permission");
+            return true;
+        }
+
         if (!(sender instanceof Player player)) {
             plugin.getLocaleManager().sendMessage(sender, "command.player_only");
             return true;
         }
 
+        boolean hasAnyPermission = player.hasPermission("justrtp.admin.zone")
+                || player.hasPermission("justrtp.command.zone.ignore");
+
+        if (!hasAnyPermission) {
+            plugin.getLocaleManager().sendMessage(player, "command.no_permission");
+            return true;
+        }
+
         if (args.length == 0) {
-            plugin.getLocaleManager().sendMessage(player, "zone.command.usage");
+            if (player.hasPermission("justrtp.admin.zone")) {
+                plugin.getLocaleManager().sendMessage(player, "zone.command.usage");
+            } else {
+                plugin.getLocaleManager().sendMessage(player, "zone.command.usage_limited");
+            }
             return true;
         }
 
@@ -106,7 +124,8 @@ public class RTPZoneCommand implements CommandExecutor {
             return;
         }
         if (zone.getHologramLocation() != null) {
-            plugin.getLocaleManager().sendMessage(player, "zone.command.hologram_already_exists", Placeholder.unparsed("id", zoneId));
+            plugin.getLocaleManager().sendMessage(player, "zone.command.hologram_already_exists",
+                    Placeholder.unparsed("id", zoneId));
             return;
         }
 
@@ -124,7 +143,8 @@ public class RTPZoneCommand implements CommandExecutor {
         int viewDistance = zone.getHologramViewDistance();
 
         plugin.getRtpZoneManager().setHologramForZone(player, zoneId, holoLoc, viewDistance);
-        plugin.getLocaleManager().sendMessage(player, "zone.command.sethologram_success", Placeholder.unparsed("id", zoneId));
+        plugin.getLocaleManager().sendMessage(player, "zone.command.sethologram_success",
+                Placeholder.unparsed("id", zoneId));
     }
 
     private void handleZoneSync(Player player) {
@@ -141,8 +161,8 @@ public class RTPZoneCommand implements CommandExecutor {
             if ("PULL".equals(mode) || "BIDIRECTIONAL".equals(mode)) {
                 plugin.getZoneSyncManager().pullZones().thenAccept(success -> {
                     if (!success) {
-                        plugin.getFoliaScheduler().runAtEntity(player, () ->
-                            plugin.getLocaleManager().sendMessage(player, "zone_sync.sync_failed"));
+                        plugin.getFoliaScheduler().runAtEntity(player,
+                                () -> plugin.getLocaleManager().sendMessage(player, "zone_sync.sync_failed"));
                     }
                 });
             }
@@ -150,8 +170,8 @@ public class RTPZoneCommand implements CommandExecutor {
             if ("PUSH".equals(mode) || "BIDIRECTIONAL".equals(mode)) {
                 plugin.getZoneSyncManager().pushZones().thenAccept(success -> {
                     if (!success) {
-                        plugin.getFoliaScheduler().runAtEntity(player, () ->
-                            plugin.getLocaleManager().sendMessage(player, "zone_sync.sync_failed"));
+                        plugin.getFoliaScheduler().runAtEntity(player,
+                                () -> plugin.getLocaleManager().sendMessage(player, "zone_sync.sync_failed"));
                     }
                 });
             }
@@ -169,8 +189,8 @@ public class RTPZoneCommand implements CommandExecutor {
         plugin.getFoliaScheduler().runAsync(() -> {
             plugin.getZoneSyncManager().pushZones().thenAccept(success -> {
                 if (!success) {
-                    plugin.getFoliaScheduler().runAtEntity(player, () ->
-                        plugin.getLocaleManager().sendMessage(player, "zone_sync.sync_failed"));
+                    plugin.getFoliaScheduler().runAtEntity(player,
+                            () -> plugin.getLocaleManager().sendMessage(player, "zone_sync.sync_failed"));
                 }
             });
         });
@@ -187,8 +207,8 @@ public class RTPZoneCommand implements CommandExecutor {
         plugin.getFoliaScheduler().runAsync(() -> {
             plugin.getZoneSyncManager().pullZones().thenAccept(success -> {
                 if (!success) {
-                    plugin.getFoliaScheduler().runAtEntity(player, () ->
-                        plugin.getLocaleManager().sendMessage(player, "zone_sync.sync_failed"));
+                    plugin.getFoliaScheduler().runAtEntity(player,
+                            () -> plugin.getLocaleManager().sendMessage(player, "zone_sync.sync_failed"));
                 }
             });
         });
@@ -204,34 +224,34 @@ public class RTPZoneCommand implements CommandExecutor {
             plugin.getZoneSyncManager().getSyncStatus().thenAccept(status -> {
                 plugin.getFoliaScheduler().runAtEntity(player, () -> {
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_header");
-                    
+
                     boolean enabled = (Boolean) status.getOrDefault("enabled", false);
                     String enabledStatus = enabled ? "<green>Yes</green>" : "<red>No</red>";
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_enabled",
-                        Placeholder.unparsed("status", enabledStatus));
-                    
+                            Placeholder.unparsed("status", enabledStatus));
+
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_mode",
-                        Placeholder.unparsed("mode", String.valueOf(status.getOrDefault("mode", "UNKNOWN"))));
-                    
+                            Placeholder.unparsed("mode", String.valueOf(status.getOrDefault("mode", "UNKNOWN"))));
+
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_storage",
-                        Placeholder.unparsed("storage", String.valueOf(status.getOrDefault("storage", "UNKNOWN"))));
-                    
+                            Placeholder.unparsed("storage", String.valueOf(status.getOrDefault("storage", "UNKNOWN"))));
+
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_interval",
-                        Placeholder.unparsed("interval", String.valueOf(status.getOrDefault("sync_interval", 0))));
-                    
+                            Placeholder.unparsed("interval", String.valueOf(status.getOrDefault("sync_interval", 0))));
+
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_zones",
-                        Placeholder.unparsed("count", String.valueOf(status.getOrDefault("zone_count", 0))));
-                    
+                            Placeholder.unparsed("count", String.valueOf(status.getOrDefault("zone_count", 0))));
+
                     boolean redisConnected = (Boolean) status.getOrDefault("redis_connected", false);
                     String redisStatus = redisConnected ? "<green>Connected</green>" : "<red>Disconnected</red>";
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_redis",
-                        Placeholder.unparsed("status", redisStatus));
-                    
+                            Placeholder.unparsed("status", redisStatus));
+
                     boolean mysqlConnected = (Boolean) status.getOrDefault("mysql_connected", false);
                     String mysqlStatus = mysqlConnected ? "<green>Connected</green>" : "<red>Disconnected</red>";
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_mysql",
-                        Placeholder.unparsed("status", mysqlStatus));
-                    
+                            Placeholder.unparsed("status", mysqlStatus));
+
                     plugin.getLocaleManager().sendMessage(player, "zone_sync.status_footer");
                 });
             });

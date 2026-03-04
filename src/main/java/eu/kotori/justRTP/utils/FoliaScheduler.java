@@ -47,7 +47,8 @@ public class FoliaScheduler {
 
     public CancellableTask runLater(Runnable task, long delayTicks) {
         if (IS_FOLIA) {
-            return new FoliaCancellableTask(Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> task.run(), delayTicks));
+            return new FoliaCancellableTask(
+                    Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> task.run(), delayTicks));
         } else {
             return new BukkitCancellableTask(Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks));
         }
@@ -56,7 +57,8 @@ public class FoliaScheduler {
     public CancellableTask runTimer(Runnable task, long delayTicks, long periodTicks) {
         if (IS_FOLIA) {
             long foliaDelay = Math.max(1, delayTicks);
-            return new FoliaCancellableTask(Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, t -> task.run(), foliaDelay, periodTicks));
+            return new FoliaCancellableTask(
+                    Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, t -> task.run(), foliaDelay, periodTicks));
         } else {
             return new BukkitCancellableTask(Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks));
         }
@@ -73,7 +75,8 @@ public class FoliaScheduler {
     public CancellableTask runTimerAtLocation(Location location, Runnable task, long delayTicks, long periodTicks) {
         if (IS_FOLIA) {
             long foliaDelay = Math.max(1, delayTicks);
-            return new FoliaCancellableTask(Bukkit.getRegionScheduler().runAtFixedRate(plugin, location, t -> task.run(), foliaDelay, periodTicks));
+            return new FoliaCancellableTask(Bukkit.getRegionScheduler().runAtFixedRate(plugin, location,
+                    t -> task.run(), foliaDelay, periodTicks));
         } else {
             return new BukkitCancellableTask(Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks));
         }
@@ -97,9 +100,20 @@ public class FoliaScheduler {
 
     public CancellableTask runAtEntityLater(Entity entity, Runnable task, long delayTicks) {
         if (IS_FOLIA) {
-            return new FoliaCancellableTask(entity.getScheduler().runDelayed(plugin, t -> task.run(), null, delayTicks));
+            return new FoliaCancellableTask(
+                    entity.getScheduler().runDelayed(plugin, t -> task.run(), null, delayTicks));
         } else {
             return new BukkitCancellableTask(Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks));
+        }
+    }
+
+    public CancellableTask runTimerAtEntity(Entity entity, Runnable task, long delayTicks, long periodTicks) {
+        if (IS_FOLIA) {
+            long foliaDelay = Math.max(1, delayTicks);
+            return new FoliaCancellableTask(
+                    entity.getScheduler().runAtFixedRate(plugin, t -> task.run(), null, foliaDelay, periodTicks));
+        } else {
+            return new BukkitCancellableTask(Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks));
         }
     }
 }

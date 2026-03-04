@@ -30,7 +30,7 @@ public class ZoneSyncManager {
     private final DataManager dataManager;
     private final DatabaseManager databaseManager;
     private CancellableTask syncTask;
-    
+
     private static final String REDIS_ZONE_KEY_PREFIX = "justrtp:zones:";
     private static final String REDIS_ZONE_METADATA_KEY = "justrtp:zone_metadata";
 
@@ -43,7 +43,8 @@ public class ZoneSyncManager {
 
     public void initialize() {
         if (!plugin.getConfigManager().isZoneSyncEnabled()) {
-            plugin.debug("[ZoneSync] Zone synchronization is disabled in config");
+            plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Zone synchronization is disabled in config");
+
             return;
         }
 
@@ -90,34 +91,39 @@ public class ZoneSyncManager {
                     plugin.getLogger().warning("[ZoneSync] Unexpected error in sync task: " + e.getMessage());
                 }
             });
-        }, 20L * interval, 20L * interval); 
+        }, 20L * interval, 20L * interval);
 
-        plugin.debug("[ZoneSync] Sync task started with interval: " + interval + " seconds, mode: " + mode);
+        plugin.getRTPLogger().debug("SYNC",
+                "[ZoneSync] Sync task started with interval: " + interval + " seconds, mode: " + mode);
+
     }
 
     public CompletableFuture<Boolean> pullZones() {
-        plugin.debug("[ZoneSync] Starting zone pull...");
-        
+        plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Starting zone pull...");
+
         String currentHash = calculateCurrentZoneHash();
-        
+
         return getRemoteZoneHash().thenCompose(remoteHash -> {
             if (currentHash.equals(remoteHash) && !remoteHash.isEmpty()) {
-                plugin.debug("[ZoneSync] Zones are already up to date (hash match)");
+                plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Zones are already up to date (hash match)");
+
                 return CompletableFuture.completedFuture(false);
             }
 
             return fetchRemoteZones().thenApply(remoteZones -> {
                 if (remoteZones.isEmpty()) {
-                    plugin.debug("[ZoneSync] No remote zones found");
+                    plugin.getRTPLogger().debug("SYNC", "[ZoneSync] No remote zones found");
+
                     return false;
                 }
 
                 applyRemoteZones(remoteZones);
-                
+
                 updateSyncMetadata(remoteHash);
 
-                plugin.getLogger().info("[ZoneSync] Successfully pulled " + remoteZones.size() + " zones from remote storage");
-                
+                plugin.getLogger()
+                        .info("[ZoneSync] Successfully pulled " + remoteZones.size() + " zones from remote storage");
+
                 if (plugin.getConfigManager().isZoneSyncAutoReload()) {
                     plugin.getFoliaScheduler().runNow(() -> {
                         plugin.getRtpZoneManager().loadZones();
@@ -135,11 +141,12 @@ public class ZoneSyncManager {
     }
 
     public CompletableFuture<Boolean> pushZones() {
-        plugin.debug("[ZoneSync] Starting zone push...");
-        
+        plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Starting zone push...");
+
         Map<String, String> localZones = serializeLocalZones();
         if (localZones.isEmpty()) {
-            plugin.debug("[ZoneSync] No local zones to push");
+            plugin.getRTPLogger().debug("SYNC", "[ZoneSync] No local zones to push");
+
             return CompletableFuture.completedFuture(false);
         }
 
@@ -159,7 +166,7 @@ public class ZoneSyncManager {
             updateSyncMetadata(currentHash);
 
             plugin.getLogger().info("[ZoneSync] Successfully pushed " + localZones.size() + " zones to remote storage");
-            
+
             if (shouldUseRedis() && plugin.getConfigManager().isRedisPubSubEnabled()) {
                 publishZoneUpdate();
             }
@@ -176,34 +183,40 @@ public class ZoneSyncManager {
     private CompletableFuture<Map<String, String>> fetchRemoteZones() {
         if (shouldUseRedis()) {
             return fetchFromRedisAsync()
-                .thenCompose(redisZones -> {
-                    if (!redisZones.isEmpty()) {
-                        plugin.debug("[ZoneSync] Fetched " + redisZones.size() + " zones from Redis");
-                        return CompletableFuture.completedFuture(redisZones);
-                    }
-                    
-                    if (shouldUseMysql()) {
-                        return fetchFromMysql()
-                            .thenApply(mysqlZones -> {
-                                if (!mysqlZones.isEmpty()) {
-                                    plugin.debug("[ZoneSync] Fetched " + mysqlZones.size() + " zones from MySQL (Redis fallback)");
-                                }
-                                return mysqlZones;
-                            });
-                    }
-                    
-                    return CompletableFuture.completedFuture(new HashMap<>());
-                });
+                    .thenCompose(redisZones -> {
+                        if (!redisZones.isEmpty()) {
+                            plugin.getRTPLogger().debug("SYNC",
+                                    "[ZoneSync] Fetched " + redisZones.size() + " zones from Redis");
+
+                            return CompletableFuture.completedFuture(redisZones);
+                        }
+
+                        if (shouldUseMysql()) {
+                            return fetchFromMysql()
+                                    .thenApply(mysqlZones -> {
+                                        if (!mysqlZones.isEmpty()) {
+                                            plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Fetched "
+                                                    + mysqlZones.size() + " zones from MySQL (Redis fallback)");
+
+                                        }
+                                        return mysqlZones;
+                                    });
+                        }
+
+                        return CompletableFuture.completedFuture(new HashMap<>());
+                    });
         }
 
         if (shouldUseMysql()) {
             return fetchFromMysql()
-                .thenApply(mysqlZones -> {
-                    if (!mysqlZones.isEmpty()) {
-                        plugin.debug("[ZoneSync] Fetched " + mysqlZones.size() + " zones from MySQL");
-                    }
-                    return mysqlZones;
-                });
+                    .thenApply(mysqlZones -> {
+                        if (!mysqlZones.isEmpty()) {
+                            plugin.getRTPLogger().debug("SYNC",
+                                    "[ZoneSync] Fetched " + mysqlZones.size() + " zones from MySQL");
+
+                        }
+                        return mysqlZones;
+                    });
         }
 
         return CompletableFuture.completedFuture(new HashMap<>());
@@ -215,37 +228,39 @@ public class ZoneSyncManager {
         }
 
         CompletableFuture<Map<String, String>> future = new CompletableFuture<>();
-        
+
         plugin.getFoliaScheduler().runAsync(() -> {
             Map<String, String> zones = new ConcurrentHashMap<>();
-            
+
             try {
                 File zonesFile = new File(plugin.getDataFolder(), "rtp_zones.yml");
                 if (zonesFile.exists()) {
                     FileConfiguration zonesConfig = YamlConfiguration.loadConfiguration(zonesFile);
                     ConfigurationSection zonesSection = zonesConfig.getConfigurationSection("zones");
-                    
+
                     if (zonesSection != null) {
                         List<CompletableFuture<Void>> futures = new ArrayList<>();
-                        
+
                         for (String zoneId : zonesSection.getKeys(false)) {
                             String key = REDIS_ZONE_KEY_PREFIX + zoneId;
-                            CompletableFuture<Void> redisFuture = dataManager.getString(key).thenAccept(optionalData -> {
-                                optionalData.ifPresent(data -> {
-                                    zones.put(zoneId, data);
-                                });
-                            });
+                            CompletableFuture<Void> redisFuture = dataManager.getString(key)
+                                    .thenAccept(optionalData -> {
+                                        optionalData.ifPresent(data -> {
+                                            zones.put(zoneId, data);
+                                        });
+                                    });
                             futures.add(redisFuture);
                         }
-                        
+
                         if (!futures.isEmpty()) {
                             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                                .thenRun(() -> future.complete(zones))
-                                .exceptionally(ex -> {
-                                    plugin.getLogger().warning("[ZoneSync] Error fetching zones from Redis: " + ex.getMessage());
-                                    future.complete(zones); 
-                                    return null;
-                                });
+                                    .thenRun(() -> future.complete(zones))
+                                    .exceptionally(ex -> {
+                                        plugin.getLogger().warning(
+                                                "[ZoneSync] Error fetching zones from Redis: " + ex.getMessage());
+                                        future.complete(zones);
+                                        return null;
+                                    });
                         } else {
                             future.complete(zones);
                         }
@@ -257,10 +272,10 @@ public class ZoneSyncManager {
                 }
             } catch (Exception e) {
                 plugin.getLogger().warning("[ZoneSync] Error fetching zones from Redis: " + e.getMessage());
-                future.complete(zones); 
+                future.complete(zones);
             }
         });
-        
+
         return future;
     }
 
@@ -270,16 +285,17 @@ public class ZoneSyncManager {
         }
 
         return databaseManager.getAllZones()
-            .thenApply(zones -> {
-                if (!zones.isEmpty()) {
-                    plugin.debug("[ZoneSync] Fetched " + zones.size() + " zones from MySQL");
-                }
-                return zones;
-            })
-            .exceptionally(ex -> {
-                plugin.getLogger().warning("[ZoneSync] Error fetching zones from MySQL: " + ex.getMessage());
-                return new HashMap<>();
-            });
+                .thenApply(zones -> {
+                    if (!zones.isEmpty()) {
+                        plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Fetched " + zones.size() + " zones from MySQL");
+
+                    }
+                    return zones;
+                })
+                .exceptionally(ex -> {
+                    plugin.getLogger().warning("[ZoneSync] Error fetching zones from MySQL: " + ex.getMessage());
+                    return new HashMap<>();
+                });
     }
 
     private void pushToRedis(Map<String, String> zones, String hash) {
@@ -298,11 +314,12 @@ public class ZoneSyncManager {
             metadata.put("server", plugin.getConfigManager().getProxyThisServerName());
             metadata.put("timestamp", System.currentTimeMillis());
             metadata.put("version", getNextSyncVersion());
-            
+
             String metadataJson = gson.toJson(metadata);
             dataManager.setString(REDIS_ZONE_METADATA_KEY, metadataJson, 0);
 
-            plugin.debug("[ZoneSync] Pushed zones to Redis successfully");
+            plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Pushed zones to Redis successfully");
+
         } catch (Exception e) {
             plugin.getLogger().warning("[ZoneSync] Error pushing zones to Redis: " + e.getMessage());
         }
@@ -318,12 +335,14 @@ public class ZoneSyncManager {
         long timestamp = System.currentTimeMillis();
 
         return databaseManager.saveZonesBatch(zones, serverName)
-            .thenCompose(v -> databaseManager.saveZoneMetadata(hash, serverName, version, timestamp))
-            .thenAccept(v -> plugin.debug("[ZoneSync] Pushed " + zones.size() + " zones to MySQL successfully"))
-            .exceptionally(ex -> {
-                plugin.getLogger().warning("[ZoneSync] Error pushing zones to MySQL: " + ex.getMessage());
-                return null;
-            });
+                .thenCompose(v -> databaseManager.saveZoneMetadata(hash, serverName, version, timestamp))
+                .thenAccept(v -> plugin.getRTPLogger().debug("SYNC",
+                        "[ZoneSync] Pushed " + zones.size() + " zones to MySQL successfully"))
+
+                .exceptionally(ex -> {
+                    plugin.getLogger().warning("[ZoneSync] Error pushing zones to MySQL: " + ex.getMessage());
+                    return null;
+                });
     }
 
     private void applyRemoteZones(Map<String, String> remoteZones) {
@@ -341,20 +360,24 @@ public class ZoneSyncManager {
                     String zoneData = entry.getValue();
 
                     try {
-                        Type type = new TypeToken<Map<String, Object>>(){}.getType();
+                        Type type = new TypeToken<Map<String, Object>>() {
+                        }.getType();
                         Map<String, Object> zoneMap = gson.fromJson(zoneData, type);
 
                         ConfigurationSection zoneSection = zonesSection.createSection(zoneId);
                         applyMapToSection(zoneSection, zoneMap);
                     } catch (Exception e) {
-                        plugin.getLogger().warning("[ZoneSync] Failed to apply zone '" + zoneId + "': " + e.getMessage());
+                        plugin.getLogger()
+                                .warning("[ZoneSync] Failed to apply zone '" + zoneId + "': " + e.getMessage());
                     }
                 }
 
                 zonesConfig.save(zonesFile);
             }
 
-            plugin.debug("[ZoneSync] Applied " + remoteZones.size() + " zones to local configuration");
+            plugin.getRTPLogger().debug("SYNC",
+                    "[ZoneSync] Applied " + remoteZones.size() + " zones to local configuration");
+
         } catch (IOException e) {
             plugin.getLogger().severe("[ZoneSync] Failed to save zones configuration: " + e.getMessage());
         }
@@ -389,17 +412,17 @@ public class ZoneSyncManager {
 
     private Map<String, Object> sectionToMap(ConfigurationSection section) {
         Map<String, Object> map = new HashMap<>();
-        
+
         for (String key : section.getKeys(false)) {
             Object value = section.get(key);
-            
+
             if (value instanceof ConfigurationSection) {
                 map.put(key, sectionToMap((ConfigurationSection) value));
             } else {
                 map.put(key, value);
             }
         }
-        
+
         return map;
     }
 
@@ -427,7 +450,7 @@ public class ZoneSyncManager {
 
             FileConfiguration zonesConfig = YamlConfiguration.loadConfiguration(zonesFile);
             ConfigurationSection zonesSection = zonesConfig.getConfigurationSection("zones");
-            
+
             if (zonesSection == null) {
                 return "";
             }
@@ -444,23 +467,28 @@ public class ZoneSyncManager {
     private CompletableFuture<String> getRemoteZoneHash() {
         if (shouldUseRedis() && dataManager != null && dataManager.isRedisConnected()) {
             return dataManager.getString(REDIS_ZONE_METADATA_KEY)
-                .thenApply(metadataOpt -> {
-                    if (metadataOpt.isPresent()) {
-                        String metadataJson = metadataOpt.get();
-                        Type type = new TypeToken<Map<String, Object>>(){}.getType();
-                        Map<String, Object> metadata = gson.fromJson(metadataJson, type);
-                        return (String) metadata.getOrDefault("hash", "");
-                    }
-                    return "";
-                })
-                .exceptionally(ex -> {
-                    plugin.debug("[ZoneSync] Error getting hash from Redis: " + ex.getMessage());
-                    return "";
-                });
+                    .thenApply(metadataOpt -> {
+                        if (metadataOpt.isPresent()) {
+                            String metadataJson = metadataOpt.get();
+                            Type type = new TypeToken<Map<String, Object>>() {
+                            }.getType();
+                            Map<String, Object> metadata = gson.fromJson(metadataJson, type);
+                            return (String) metadata.getOrDefault("hash", "");
+                        }
+                        return "";
+                    })
+                    .exceptionally(ex -> {
+                        plugin.getRTPLogger().debug("SYNC",
+                                "[ZoneSync] Error getting hash from Redis: " + ex.getMessage());
+
+                        return "";
+                    });
         }
 
         if (shouldUseMysql() && databaseManager != null && databaseManager.isConnected()) {
-            plugin.debug("[ZoneSync] MySQL hash retrieval requires extended DatabaseManager - feature pending");
+            plugin.getRTPLogger().debug("SYNC",
+                    "[ZoneSync] MySQL hash retrieval requires extended DatabaseManager - feature pending");
+
         }
 
         return CompletableFuture.completedFuture("");
@@ -501,14 +529,15 @@ public class ZoneSyncManager {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] hashBytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            
+
             StringBuilder hexString = new StringBuilder();
             for (byte b : hashBytes) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1)
+                    hexString.append('0');
                 hexString.append(hex);
             }
-            
+
             return hexString.toString();
         } catch (NoSuchAlgorithmException e) {
             plugin.getLogger().severe("[ZoneSync] MD5 algorithm not found: " + e.getMessage());
@@ -519,39 +548,42 @@ public class ZoneSyncManager {
     private void createMysqlTable() {
         if (databaseManager != null && databaseManager.isConnected()) {
             databaseManager.createZoneSyncTables();
-            plugin.debug("[ZoneSync] MySQL zone sync tables created/verified");
+            plugin.getRTPLogger().debug("SYNC", "[ZoneSync] MySQL zone sync tables created/verified");
+
         }
     }
 
     private void subscribeToZoneUpdates() {
         if (dataManager == null || !dataManager.isPubSubAvailable()) {
-            plugin.debug("[ZoneSync] Redis pub/sub not available - using polling mode only");
+            plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Redis pub/sub not available - using polling mode only");
+
             return;
         }
 
         String channel = REDIS_ZONE_KEY_PREFIX + "updates";
-        
+
         dataManager.subscribe(channel, message -> {
             try {
-                Type type = new TypeToken<Map<String, Object>>(){}.getType();
+                Type type = new TypeToken<Map<String, Object>>() {
+                }.getType();
                 Map<String, Object> notification = gson.fromJson(message, type);
-                
+
                 String event = (String) notification.get("event");
                 String serverName = (String) notification.get("server");
-                
+
                 if (serverName.equals(plugin.getConfigManager().getProxyThisServerName())) {
                     return;
                 }
-                
+
                 if ("zones_updated".equals(event)) {
                     plugin.getLogger().info("[ZoneSync] Received zone update notification from " + serverName);
-                    
+
                     String mode = plugin.getConfigManager().getZoneSyncMode().toUpperCase();
                     if ("PULL".equals(mode) || "BIDIRECTIONAL".equals(mode)) {
                         plugin.getFoliaScheduler().runAsync(() -> {
                             pullZones().exceptionally(throwable -> {
-                                plugin.getLogger().warning("[ZoneSync] Failed to pull zones after notification: " + 
-                                    throwable.getMessage());
+                                plugin.getLogger().warning("[ZoneSync] Failed to pull zones after notification: " +
+                                        throwable.getMessage());
                                 return null;
                             });
                         });
@@ -561,31 +593,36 @@ public class ZoneSyncManager {
                 plugin.getLogger().warning("[ZoneSync] Error handling pub/sub notification: " + e.getMessage());
             }
         }).thenAccept(v -> {
-            plugin.getLogger().info("[ZoneSync] Subscribed to Redis pub/sub for instant zone updates on channel: " + channel);
+            plugin.getLogger()
+                    .info("[ZoneSync] Subscribed to Redis pub/sub for instant zone updates on channel: " + channel);
         });
     }
 
     private void publishZoneUpdate() {
         if (dataManager == null || !dataManager.isPubSubAvailable()) {
-            plugin.debug("[ZoneSync] Cannot publish zone update - Redis pub/sub not available");
+            plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Cannot publish zone update - Redis pub/sub not available");
+
             return;
         }
 
         String channel = REDIS_ZONE_KEY_PREFIX + "updates";
-        
+
         Map<String, Object> notification = new HashMap<>();
         notification.put("event", "zones_updated");
         notification.put("server", plugin.getConfigManager().getProxyThisServerName());
         notification.put("timestamp", System.currentTimeMillis());
         notification.put("zone_count", getLocalZoneCount());
-        
+
         String message = gson.toJson(notification);
-        
+
         dataManager.publish(channel, message).thenAccept(subscribers -> {
             if (subscribers > 0) {
-                plugin.getLogger().info("[ZoneSync] Published zone update notification to " + subscribers + " subscribers on channel: " + channel);
+                plugin.getLogger().info("[ZoneSync] Published zone update notification to " + subscribers
+                        + " subscribers on channel: " + channel);
             } else {
-                plugin.debug("[ZoneSync] Published zone update notification but no subscribers are listening");
+                plugin.getRTPLogger().debug("SYNC",
+                        "[ZoneSync] Published zone update notification but no subscribers are listening");
+
             }
         }).exceptionally(throwable -> {
             plugin.getLogger().warning("[ZoneSync] Failed to publish zone update: " + throwable.getMessage());
@@ -599,7 +636,7 @@ public class ZoneSyncManager {
             if (!zonesFile.exists()) {
                 return 0;
             }
-            
+
             FileConfiguration zonesConfig = YamlConfiguration.loadConfiguration(zonesFile);
             ConfigurationSection zonesSection = zonesConfig.getConfigurationSection("zones");
             return zonesSection != null ? zonesSection.getKeys(false).size() : 0;
@@ -615,33 +652,33 @@ public class ZoneSyncManager {
 
         plugin.getFoliaScheduler().runNow(() -> {
             Bukkit.getOnlinePlayers().stream()
-                .filter(player -> player.hasPermission("justrtp.admin"))
-                .forEach(player -> {
-                    String message = "[ZoneSync] " + messageKey + ": " + zoneCount + " zones (server: " + 
-                                   plugin.getConfigManager().getProxyThisServerName() + ")";
-                    player.sendMessage(MiniMessage.miniMessage().deserialize("<green>" + message + "</green>"));
-                });
+                    .filter(player -> player.hasPermission("justrtp.admin"))
+                    .forEach(player -> {
+                        String message = "[ZoneSync] " + messageKey + ": " + zoneCount + " zones (server: " +
+                                plugin.getConfigManager().getProxyThisServerName() + ")";
+                        player.sendMessage(MiniMessage.miniMessage().deserialize("<green>" + message + "</green>"));
+                    });
         });
     }
 
     private boolean shouldUseRedis() {
         String storage = plugin.getConfigManager().getZoneSyncStorage().toUpperCase();
-        return ("REDIS".equals(storage) || "BOTH".equals(storage)) && 
-               plugin.getConfigManager().isRedisEnabled() &&
-               dataManager != null && dataManager.isRedisConnected();
+        return ("REDIS".equals(storage) || "BOTH".equals(storage)) &&
+                plugin.getConfigManager().isRedisEnabled() &&
+                dataManager != null && dataManager.isRedisConnected();
     }
 
     private boolean shouldUseMysql() {
         String storage = plugin.getConfigManager().getZoneSyncStorage().toUpperCase();
-        return ("MYSQL".equals(storage) || "BOTH".equals(storage)) && 
-               plugin.getConfigManager().isProxyMySqlEnabled() &&
-               databaseManager != null && databaseManager.isConnected();
+        return ("MYSQL".equals(storage) || "BOTH".equals(storage)) &&
+                plugin.getConfigManager().isProxyMySqlEnabled() &&
+                databaseManager != null && databaseManager.isConnected();
     }
 
     public CompletableFuture<Map<String, Object>> getSyncStatus() {
         return CompletableFuture.supplyAsync(() -> {
             Map<String, Object> status = new HashMap<>();
-            
+
             try {
                 File zonesFile = new File(plugin.getDataFolder(), "rtp_zones.yml");
                 FileConfiguration zonesConfig = YamlConfiguration.loadConfiguration(zonesFile);
@@ -658,7 +695,7 @@ public class ZoneSyncManager {
                 status.put("remote_hash", getRemoteZoneHash());
                 status.put("redis_connected", dataManager != null && dataManager.isRedisConnected());
                 status.put("mysql_connected", databaseManager != null && databaseManager.isConnected());
-                
+
                 ConfigurationSection zonesSection = zonesConfig.getConfigurationSection("zones");
                 status.put("local_zone_count", zonesSection != null ? zonesSection.getKeys(false).size() : 0);
             } catch (Exception e) {
@@ -673,7 +710,8 @@ public class ZoneSyncManager {
         if (syncTask != null && !syncTask.isCancelled()) {
             syncTask.cancel();
         }
-        plugin.debug("[ZoneSync] Zone synchronization shut down");
+        plugin.getRTPLogger().debug("SYNC", "[ZoneSync] Zone synchronization shut down");
+
     }
 
     public void reload() {

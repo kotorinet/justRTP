@@ -6,32 +6,31 @@ import org.bukkit.Bukkit;
 public class ThreadSafetyGuard {
     private final JustRTP plugin;
     private final boolean strictMode;
-    
+
     public ThreadSafetyGuard(JustRTP plugin) {
         this.plugin = plugin;
-        this.strictMode = true; 
+        this.strictMode = true;
     }
-    
+
     public boolean isMainThread() {
         if (FoliaScheduler.isFolia()) {
             String threadName = Thread.currentThread().getName();
-            return threadName.contains("RegionScheduler") || 
-                   threadName.contains("GlobalRegionScheduler") ||
-                   threadName.contains("Tick-");
+            return threadName.contains("RegionScheduler") ||
+                    threadName.contains("GlobalRegionScheduler") ||
+                    threadName.contains("Tick-");
         } else {
             return Bukkit.isPrimaryThread();
         }
     }
-    
+
     public void assertNotMainThread(String operation) {
         if (isMainThread()) {
             String error = String.format(
-                "[THREAD SAFETY VIOLATION] %s called on MAIN THREAD! " +
-                "This operation MUST run asynchronously. Thread: %s",
-                operation,
-                Thread.currentThread().getName()
-            );
-            
+                    "[THREAD SAFETY VIOLATION] %s called on MAIN THREAD! " +
+                            "This operation MUST run asynchronously. Thread: %s",
+                    operation,
+                    Thread.currentThread().getName());
+
             if (strictMode) {
                 plugin.getLogger().severe(error);
                 plugin.getLogger().severe("Stack trace:");
@@ -45,30 +44,28 @@ public class ThreadSafetyGuard {
             }
         }
     }
-    
+
     public void assertAsyncDatabase(String methodName) {
         assertNotMainThread("Database." + methodName + "()");
     }
-    
+
     public void assertAsyncRedis(String methodName) {
         assertNotMainThread("Redis." + methodName + "()");
     }
-    
+
     public void logAsyncExecution(String operation) {
-        plugin.debug(String.format(
-            "[ASYNC-OK] %s running on async thread: %s",
-            operation,
-            Thread.currentThread().getName()
-        ));
+        plugin.getRTPLogger().debug("THREAD", String.format(
+                "[ASYNC-OK] %s running on async thread: %s",
+                operation,
+                Thread.currentThread().getName()));
     }
-    
+
     public String getThreadInfo() {
         Thread t = Thread.currentThread();
         return String.format(
-            "Thread[name=%s, id=%d, main=%b]",
-            t.getName(),
-            t.threadId(),
-            isMainThread()
-        );
+                "Thread[name=%s, id=%d, main=%b]",
+                t.getName(),
+                t.threadId(),
+                isMainThread());
     }
 }

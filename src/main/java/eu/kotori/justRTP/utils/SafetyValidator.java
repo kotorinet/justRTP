@@ -1,7 +1,8 @@
 package eu.kotori.justRTP.utils;
 
 import eu.kotori.justRTP.JustRTP;
-import org.bukkit.Bukkit;
+import io.papermc.lib.PaperLib;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -10,188 +11,163 @@ import org.bukkit.block.Block;
 import java.util.concurrent.CompletableFuture;
 
 public class SafetyValidator {
-    public static boolean isLocationAbsolutelySafe(Location location) {
+
+    public static CompletableFuture<Boolean> isLocationAbsolutelySafeAsync(Location location) {
         if (location == null || location.getWorld() == null) {
-            return false;
+            return CompletableFuture.completedFuture(false);
         }
-        
-        World world = location.getWorld();
-        World.Environment env = world.getEnvironment();
-        
-        switch (env) {
-            case NETHER:
-                return isNetherLocationSafe(location);
-            case THE_END:
-                return isEndLocationSafe(location);
-            case NORMAL:
-            default:
-                return isOverworldLocationSafe(location);
-        }
+
+        return PaperLib.getChunkAtAsync(location)
+                .thenApply(chunk -> {
+                    if (chunk == null)
+                        return false;
+                    return isLocationSafeInternal(location, chunk);
+                })
+                .exceptionally(ex -> {
+                    JustRTP.getInstance().getLogger().warning("Error checking safety async: " + ex.getMessage());
+                    return false;
+                });
     }
-    
-    private static boolean isNetherLocationSafe(Location location) {
-        World world = location.getWorld();
-        double y = location.getY();
-        if (y >= 126.0) {
+
+    @Deprecated
+    public static boolean isLocationAbsolutelySafe(Location location) {
+        if (location == null || location.getWorld() == null)
             return false;
-        }
-        
-        double headY = y + 1.0;
-        if (headY >= 127.0) {
-            return false;
-        }
-        
-        if (y < 5) {
-            return false;
-        }
-        
-        int blockX = location.getBlockX();
-        int blockY = location.getBlockY();
-        int blockZ = location.getBlockZ();
-        Block groundBlock = world.getBlockAt(blockX, blockY - 1, blockZ);
-        Block feetBlock = world.getBlockAt(blockX, blockY, blockZ);
-        Block headBlock = world.getBlockAt(blockX, blockY + 1, blockZ);
-        if (!groundBlock.getType().isSolid()) {
-            return false;
-        }
-        
-        if (isDangerousBlock(groundBlock.getType())) {
-            return false;
-        }
-        
-        if (feetBlock.getType().isSolid() || headBlock.getType().isSolid()) {
-            return false;
-        }
-        
-        if (hasLavaNearby(location)) {
-            return false;
-        }
-        
-        Block ceilingBlock = world.getBlockAt(blockX, 127, blockZ);
-        if (ceilingBlock.getType() == Material.BEDROCK) {
-            if (y >= 120) {
+        try {
+            if (!location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
                 return false;
             }
+            return isLocationSafeInternal(location, location.getChunk());
+        } catch (Exception e) {
+            return false;
         }
-        
+    }
+
+    private static boolean isLocationSafeInternal(Location location, Chunk chunk) {
+        World world = location.getWorld();
+        World.Environment env = world.getEnvironment();
+
+        switch (env) {
+            case NETHER:
+                return isNetherLocationSafe(location, chunk);
+            case THE_END:
+                return isEndLocationSafe(location, chunk);
+            case NORMAL:
+            default:
+                return isOverworldLocationSafe(location, chunk);
+        }
+    }
+
+    private static boolean isNetherLocationSafe(Location location, Chunk chunk) {
+        int x = location.getBlockX() & 15;
+        int z = location.getBlockZ() & 15;
+        double y = location.getY();
+
+        if (y >= 126.0 || (y + 1.0) >= 127.0)
+            return false;
+        if (y < 5)
+            return false;
+
+        Block groundBlock = chunk.getBlock(x, (int) y - 1, z);
+        Block feetBlock = chunk.getBlock(x, (int) y, z);
+        Block headBlock = chunk.getBlock(x, (int) y + 1, z);
+
+        if (!groundBlock.getType().isSolid())
+            return false;
+        if (isDangerousBlock(groundBlock.getType()))
+            return false;
+        if (feetBlock.getType().isSolid() || headBlock.getType().isSolid())
+            return false;
+        if (hasLavaNearby(location, chunk))
+            return false;
+
+        if (chunk.getWorld().getEnvironment() == World.Environment.NETHER) {
+            Block ceiling = chunk.getBlock(x, 127, z);
+            if (ceiling.getType() == Material.BEDROCK && y >= 120)
+                return false;
+        }
+
         return true;
     }
-    
-    private static boolean isEndLocationSafe(Location location) {
-        World world = location.getWorld();
+
+    private static boolean isEndLocationSafe(Location location, Chunk chunk) {
+        int x = location.getBlockX() & 15;
+        int z = location.getBlockZ() & 15;
         double y = location.getY();
-        
-        if (y < 10) {
+
+        if (y < 10 || y > 120)
             return false;
-        }
-        
-        if (y > 120) {
+
+        Block groundBlock = chunk.getBlock(x, (int) y - 1, z);
+        if (!groundBlock.getType().isSolid())
             return false;
-        }
-        
-        int blockX = location.getBlockX();
-        int blockY = location.getBlockY();
-        int blockZ = location.getBlockZ();
-        
-        Block groundBlock = world.getBlockAt(blockX, blockY - 1, blockZ);
-        Block feetBlock = world.getBlockAt(blockX, blockY, blockZ);
-        Block headBlock = world.getBlockAt(blockX, blockY + 1, blockZ);
-        
-        if (!groundBlock.getType().isSolid()) {
-            return false;
-        }
-        
+
         Material groundType = groundBlock.getType();
-        if (groundType != Material.END_STONE && 
-            groundType != Material.OBSIDIAN && 
-            !groundType.isSolid()) {
-            return false;
+        if (groundType != Material.END_STONE &&
+                groundType != Material.OBSIDIAN &&
+                !groundType.isSolid()) {
+            if (groundType != Material.END_STONE && groundType != Material.OBSIDIAN)
+                return false;
         }
-        
-        if (feetBlock.getType().isSolid() || headBlock.getType().isSolid()) {
+
+        Block feetBlock = chunk.getBlock(x, (int) y, z);
+        Block headBlock = chunk.getBlock(x, (int) y + 1, z);
+
+        if (feetBlock.getType().isSolid() || headBlock.getType().isSolid())
             return false;
-        }
-        
+
         boolean hasGroundBelow = false;
+        int blockY = (int) y;
         for (int checkY = blockY - 1; checkY > Math.max(0, blockY - 10); checkY--) {
-            Block checkBlock = world.getBlockAt(blockX, checkY, blockZ);
+            Block checkBlock = chunk.getBlock(x, checkY, z);
             if (checkBlock.getType().isSolid()) {
                 hasGroundBelow = true;
                 break;
             }
         }
-        
-        if (!hasGroundBelow) {
+        if (!hasGroundBelow)
             return false;
-        }
-        int voidCount = 0;
-        for (int xOff = -1; xOff <= 1; xOff++) {
-            for (int zOff = -1; zOff <= 1; zOff++) {
-                if (xOff == 0 && zOff == 0) continue;
-                Block nearbyGround = world.getBlockAt(blockX + xOff, blockY - 1, blockZ + zOff);
-                if (!nearbyGround.getType().isSolid()) {
-                    voidCount++;
-                }
-            }
-        }
-        
-        if (voidCount > 3) {
-            return false;
-        }
-        
+
+
         return true;
     }
-    
-    private static boolean isOverworldLocationSafe(Location location) {
-        World world = location.getWorld();
+
+    private static boolean isOverworldLocationSafe(Location location, Chunk chunk) {
+        int x = location.getBlockX() & 15;
+        int z = location.getBlockZ() & 15;
         double y = location.getY();
-        
+        World world = chunk.getWorld();
+
         int minHeight = world.getMinHeight();
         int maxHeight = world.getMaxHeight();
-        
-        if (y < minHeight + 5) {
-            return false; 
-        }
-        
-        if (y > maxHeight - 10) {
-            return false; 
-        }
-        
-        if (y >= 127) {
+
+        if (y < minHeight + 5)
             return false;
-        }
-        
-        int blockX = location.getBlockX();
-        int blockY = location.getBlockY();
-        int blockZ = location.getBlockZ();
-        
-        Block groundBlock = world.getBlockAt(blockX, blockY - 1, blockZ);
-        Block feetBlock = world.getBlockAt(blockX, blockY, blockZ);
-        Block headBlock = world.getBlockAt(blockX, blockY + 1, blockZ);
-        
-        if (!groundBlock.getType().isSolid()) {
+        if (y > maxHeight - 10)
             return false;
-        }
-        
-        if (isDangerousBlock(groundBlock.getType())) {
+        if (y >= 255)
             return false;
-        }
-        
-        if (feetBlock.getType().isSolid() || headBlock.getType().isSolid()) {
+
+        Block groundBlock = chunk.getBlock(x, (int) y - 1, z);
+        Block feetBlock = chunk.getBlock(x, (int) y, z);
+        Block headBlock = chunk.getBlock(x, (int) y + 1, z);
+
+        if (!groundBlock.getType().isSolid())
             return false;
-        }
-        
-        if (feetBlock.isLiquid() || headBlock.isLiquid() || groundBlock.isLiquid()) {
+        if (isDangerousBlock(groundBlock.getType()))
             return false;
-        }
-        
-        if (hasLavaNearby(location)) {
+
+        if (feetBlock.getType().isSolid() || headBlock.getType().isSolid())
             return false;
-        }
-        
+        if (feetBlock.isLiquid() || headBlock.isLiquid() || groundBlock.isLiquid())
+            return false;
+
+        if (hasLavaNearby(location, chunk))
+            return false;
+
         return true;
     }
-    
+
     private static boolean isDangerousBlock(Material material) {
         switch (material) {
             case LAVA:
@@ -209,166 +185,29 @@ public class SafetyValidator {
                 return false;
         }
     }
-    
-    private static boolean hasLavaNearby(Location location) {
-        World world = location.getWorld();
-        int blockX = location.getBlockX();
-        int blockY = location.getBlockY();
-        int blockZ = location.getBlockZ();
-        
+
+    private static boolean hasLavaNearby(Location location, Chunk chunk) {
+        int cx = location.getBlockX() & 15;
+        int cy = location.getBlockY();
+        int cz = location.getBlockZ() & 15;
+
         for (int xOff = -1; xOff <= 1; xOff++) {
             for (int yOff = -1; yOff <= 1; yOff++) {
                 for (int zOff = -1; zOff <= 1; zOff++) {
-                    Block block = world.getBlockAt(blockX + xOff, blockY + yOff, blockZ + zOff);
-                    if (block.getType() == Material.LAVA) {
-                        return true;
+                    int nx = cx + xOff;
+                    int nz = cz + zOff;
+                    if (nx >= 0 && nx < 16 && nz >= 0 && nz < 16) {
+                        Block block = chunk.getBlock(nx, cy + yOff, nz);
+                        if (block.getType() == Material.LAVA)
+                            return true;
                     }
                 }
             }
         }
-        
         return false;
     }
-    
+
     public static String getUnsafeReason(Location location) {
-        if (location == null || location.getWorld() == null) {
-            return "Location or world is null";
-        }
-        
-        World world = location.getWorld();
-        World.Environment env = world.getEnvironment();
-        double y = location.getY();
-        int blockX = location.getBlockX();
-        int blockY = location.getBlockY();
-        int blockZ = location.getBlockZ();
-        
-        Block groundBlock = world.getBlockAt(blockX, blockY - 1, blockZ);
-        Block feetBlock = world.getBlockAt(blockX, blockY, blockZ);
-        Block headBlock = world.getBlockAt(blockX, blockY + 1, blockZ);
-        
-        if (env == World.Environment.NETHER) {
-            if (y >= 126.0) {
-                return "Nether: Y=" + y + " >= 126 (head would be at ceiling Y=127)";
-            }
-            if (y + 1.0 >= 127.0) {
-                return "Nether: Head position Y=" + (y+1) + " >= 127 (ceiling)";
-            }
-            if (y < 5) {
-                return "Nether: Y=" + y + " < 5 (too close to bottom bedrock)";
-            }
-            if (!groundBlock.getType().isSolid()) {
-                return "Nether: No solid ground below (ground=" + groundBlock.getType() + ")";
-            }
-            if (isDangerousBlock(groundBlock.getType())) {
-                return "Nether: Dangerous ground block (" + groundBlock.getType() + ")";
-            }
-            if (feetBlock.getType().isSolid() || headBlock.getType().isSolid()) {
-                return "Nether: Player space obstructed by solid blocks (feet=" + feetBlock.getType() + ", head=" + headBlock.getType() + ")";
-            }
-            if (hasLavaNearby(location)) {
-                return "Nether: Lava nearby";
-            }
-            Block ceilingBlock = world.getBlockAt(blockX, 127, blockZ);
-            if (ceilingBlock.getType() == Material.BEDROCK && y >= 120) {
-                return "Nether: Too close to bedrock ceiling (Y=" + y + " >= 120)";
-            }
-        } else if (env == World.Environment.THE_END) {
-            if (y < 10) {
-                return "End: Y=" + y + " < 10 (too close to void)";
-            }
-            if (y > 120) {
-                return "End: Y=" + y + " > 120 (too high)";
-            }
-            if (!groundBlock.getType().isSolid()) {
-                return "End: No solid ground (ground=" + groundBlock.getType() + ")";
-            }
-            Material groundType = groundBlock.getType();
-            if (groundType != Material.END_STONE && groundType != Material.OBSIDIAN && !groundType.isSolid()) {
-                return "End: Invalid ground material (" + groundType + ")";
-            }
-            if (feetBlock.getType().isSolid() || headBlock.getType().isSolid()) {
-                return "End: Player space obstructed by solid blocks (feet=" + feetBlock.getType() + ", head=" + headBlock.getType() + ")";
-            }
-            boolean hasGroundBelow = false;
-            for (int checkY = blockY - 1; checkY > Math.max(0, blockY - 10); checkY--) {
-                Block checkBlock = world.getBlockAt(blockX, checkY, blockZ);
-                if (checkBlock.getType().isSolid()) {
-                    hasGroundBelow = true;
-                    break;
-                }
-            }
-            if (!hasGroundBelow) {
-                return "End: No solid ground within 10 blocks below (floating island too small)";
-            }
-            int voidCount = 0;
-            for (int xOff = -1; xOff <= 1; xOff++) {
-                for (int zOff = -1; zOff <= 1; zOff++) {
-                    if (xOff == 0 && zOff == 0) continue;
-                    Block nearbyGround = world.getBlockAt(blockX + xOff, blockY - 1, blockZ + zOff);
-                    if (!nearbyGround.getType().isSolid()) {
-                        voidCount++;
-                    }
-                }
-            }
-            if (voidCount > 3) {
-                return "End: Too many void blocks nearby (surrounded by void: " + voidCount + "/8)";
-            }
-        } else {
-            int minHeight = world.getMinHeight();
-            int maxHeight = world.getMaxHeight();
-            
-            if (y < minHeight + 5) {
-                return "Overworld: Y=" + y + " too close to bottom (minHeight=" + minHeight + ")";
-            }
-            if (y > maxHeight - 10) {
-                return "Overworld: Y=" + y + " too close to top (maxHeight=" + maxHeight + ")";
-            }
-            if (y >= 127) {
-                return "Overworld: Y=" + y + " >= 127 (invalid height)";
-            }
-            if (!groundBlock.getType().isSolid()) {
-                return "Overworld: No solid ground (ground=" + groundBlock.getType() + ")";
-            }
-            if (isDangerousBlock(groundBlock.getType())) {
-                return "Overworld: Dangerous ground block (" + groundBlock.getType() + ")";
-            }
-            if (feetBlock.getType().isSolid() || headBlock.getType().isSolid()) {
-                return "Overworld: Player space obstructed by solid blocks (feet=" + feetBlock.getType() + ", head=" + headBlock.getType() + ")";
-            }
-            if (feetBlock.isLiquid() || headBlock.isLiquid() || groundBlock.isLiquid()) {
-                return "Overworld: Liquid detected (feet=" + feetBlock.isLiquid() + ", head=" + headBlock.isLiquid() + ", ground=" + groundBlock.isLiquid() + ")";
-            }
-            if (hasLavaNearby(location)) {
-                return "Overworld: Lava nearby";
-            }
-        }
-        
-        return "Unknown safety issue (all checks passed but safety returned false)";
-    }
-
-    public static CompletableFuture<Boolean> isLocationAbsolutelySafeAsync(Location location) {
-        CompletableFuture<Boolean> future = new CompletableFuture<>();
-        if (location == null || location.getWorld() == null) {
-            future.complete(false);
-            return future;
-        }
-
-        if (Bukkit.isPrimaryThread()) {
-            try {
-                future.complete(isLocationAbsolutelySafe(location));
-            } catch (Exception e) {
-                future.completeExceptionally(e);
-            }
-        } else {
-            Bukkit.getScheduler().runTask(JustRTP.getInstance(), () -> {
-                try {
-                    future.complete(isLocationAbsolutelySafe(location));
-                } catch (Exception e) {
-                    future.completeExceptionally(e);
-                }
-            });
-        }
-
-        return future;
+        return "Unsafe location (async check failed)";
     }
 }

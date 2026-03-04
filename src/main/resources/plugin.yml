@@ -1,11 +1,11 @@
-name: JustRTP
-version: 3.3.2
+ name: JustRTP
+version: ${project.version}
 main: eu.kotori.justRTP.JustRTP
 api-version: '1.21'
 author: kotori
 description: A highly optimized and safe Random Teleport plugin with Folia, Velocity, and MySQL support.
 folia-supported: true
-softdepend: [Vault, PlaceholderAPI, WorldGuard, KingdomsX, Kingdoms, TownsAndNations, packetevents, FancyHolograms]
+softdepend: [Vault, PlaceholderAPI, WorldGuard, KingdomsX, Kingdoms, TownsAndNations, SimpleClaimSystem, packetevents, FancyHolograms]
 commands:
   justrtp:
     description: Randomly teleports a player with advanced options.
@@ -24,7 +24,7 @@ permissions:
     default: op
   justrtp.command.rtp:
     description: Allows using the basic /rtp command for self-teleportation.
-    default: true
+    default: op
   justrtp.command.rtp.others:
     description: Allows teleporting other players using /rtp <player>.
     default: op
@@ -37,6 +37,18 @@ permissions:
   justrtp.command.rtp.radius:
     description: Allows specifying a custom min/max radius for a teleport.
     default: op
+  justrtp.command.rtp.nearplayer:
+    description: Allows using the /rtp nearplayer command to teleport near online players.
+    default: op
+  justrtp.command.rtp.gui:
+    description: Allows using the /rtp gui command to open the world selection GUI.
+    default: true
+  justrtp.command.rtp.spectator:
+    description: Allows using the /rtp spectator command to open the spectator switch interface.
+    default: true
+  justrtp.command.rtp.nearclaim:
+    description: Allows using the /rtp nearclaim command to teleport near claimed territories.
+    default: true
   justrtp.command.rtp.location:
     description: Allows using the /rtp location command for custom locations.
     default: true
@@ -73,3 +85,6 @@ permissions:
   justrtp.group.*:
     description: Wildcard permission for all permission groups. (e.g., justrtp.group.vip)
     default: op
+  justrtp.command.help:
+    description: Allows viewing the /rtp help command.
+    default: true

@@ -6,18 +6,22 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
+import java.util.List;
 
 /**
  * API Documentation can be found on https://kotori.ink/wiki/justrtp/api
  * Called when a player enters an RTP Zone.
- * This event is cancellable - cancelling prevents the player from joining the zone queue.
+ * This event is cancellable - cancelling prevents the player from joining the
+ * zone queue.
  * 
- * <p>Use this event to:</p>
+ * <p>
+ * Use this event to:
+ * </p>
  * <ul>
- *   <li>Block certain players from entering zones</li>
- *   <li>Check zone entry requirements</li>
- *   <li>Track zone participation</li>
- *   <li>Trigger custom effects on zone entry</li>
+ * <li>Block certain players from entering zones</li>
+ * <li>Check zone entry requirements</li>
+ * <li>Track zone participation</li>
+ * <li>Trigger custom effects on zone entry</li>
  * </ul>
  * 
  * @see PlayerRTPZoneLeaveEvent for zone exit handling
@@ -25,24 +29,25 @@ import org.jetbrains.annotations.NotNull;
 public class PlayerRTPZoneEnterEvent extends Event implements Cancellable {
     private static final HandlerList HANDLERS = new HandlerList();
     private boolean cancelled = false;
-    
+
     private final Player player;
     private final RTPZone zone;
     private final int playersInZone;
-    
+
     /**
      * Constructs a new PlayerRTPZoneEnterEvent.
      *
-     * @param player The player entering the zone
-     * @param zone The RTP zone being entered
-     * @param playersInZone The number of players currently in the zone (including this player)
+     * @param player        The player entering the zone
+     * @param zone          The RTP zone being entered
+     * @param playersInZone The number of players currently in the zone (including
+     *                      this player)
      */
     public PlayerRTPZoneEnterEvent(@NotNull Player player, @NotNull RTPZone zone, int playersInZone) {
         this.player = player;
         this.zone = zone;
         this.playersInZone = playersInZone;
     }
-    
+
     /**
      * Gets the player who entered the zone.
      *
@@ -52,7 +57,7 @@ public class PlayerRTPZoneEnterEvent extends Event implements Cancellable {
     public Player getPlayer() {
         return player;
     }
-    
+
     /**
      * Gets the RTP zone that was entered.
      *
@@ -62,7 +67,7 @@ public class PlayerRTPZoneEnterEvent extends Event implements Cancellable {
     public RTPZone getZone() {
         return zone;
     }
-    
+
     /**
      * Gets the zone ID.
      *
@@ -72,7 +77,7 @@ public class PlayerRTPZoneEnterEvent extends Event implements Cancellable {
     public String getZoneId() {
         return zone.getId();
     }
-    
+
     /**
      * Gets the number of players currently in the zone.
      * This includes the player who just entered.
@@ -82,7 +87,7 @@ public class PlayerRTPZoneEnterEvent extends Event implements Cancellable {
     public int getPlayersInZone() {
         return playersInZone;
     }
-    
+
     /**
      * Gets the zone's teleport interval in seconds.
      *
@@ -91,33 +96,33 @@ public class PlayerRTPZoneEnterEvent extends Event implements Cancellable {
     public int getZoneInterval() {
         return zone.getInterval();
     }
-    
+
     /**
-     * Gets the zone's target world or server.
+     * Gets the zone's target worlds or servers.
      *
-     * @return The target (world name or server:world format)
+     * @return The list of targets
      */
     @NotNull
-    public String getZoneTarget() {
-        return zone.getTarget();
+    public List<String> getZoneTargets() {
+        return zone.getTargets();
     }
-    
+
     @Override
     public boolean isCancelled() {
         return cancelled;
     }
-    
+
     @Override
     public void setCancelled(boolean cancel) {
         this.cancelled = cancel;
     }
-    
+
     @NotNull
     @Override
     public HandlerList getHandlers() {
         return HANDLERS;
     }
-    
+
     @NotNull
     public static HandlerList getHandlerList() {
         return HANDLERS;

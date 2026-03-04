@@ -1,4 +1,5 @@
 package eu.kotori.justRTP.managers;
+
 import eu.kotori.justRTP.JustRTP;
 import eu.kotori.justRTP.utils.task.CancellableTask;
 import org.bukkit.Location;
@@ -12,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
+
 public class LocationCacheManager {
     private final JustRTP plugin;
     private final Map<String, ConcurrentLinkedQueue<Location>> locationCache = new ConcurrentHashMap<>();
@@ -32,7 +34,8 @@ public class LocationCacheManager {
     public void initialize() {
         this.cacheEnabled = plugin.getConfig().getBoolean("location_cache.enabled", true);
         if (!cacheEnabled) {
-            plugin.debug("Location cache is disabled.");
+            plugin.getRTPLogger().debug("CACHE", "Location cache is disabled.");
+
             return;
         }
 
@@ -51,16 +54,19 @@ public class LocationCacheManager {
                 if (world != null && plugin.getRtpService().isRtpEnabled(world)) {
                     locationCache.putIfAbsent(worldName, new ConcurrentLinkedQueue<>());
                     isRefilling.put(worldName, false);
-                    plugin.debug("Initializing location cache for world: " + worldName + ". Found " + locationCache.get(worldName).size() + " cached locations.");
+                    plugin.getRTPLogger().debug("CACHE", "Initializing location cache for world: " + worldName
+                            + ". Found " + locationCache.get(worldName).size() + " cached locations.");
+
                 } else {
-                    plugin.getLogger().warning("World '" + worldName + "' listed in location_cache.worlds is not loaded or RTP is disabled for it.");
+                    plugin.getLogger().warning("World '" + worldName
+                            + "' listed in location_cache.worlds is not loaded or RTP is disabled for it.");
                 }
             }
         }
 
-
         startRefillTask(interval);
-        plugin.getLogger().info("Location Cache initialized for " + locationCache.size() + " worlds. Target size per world: " + cacheSize);
+        plugin.getLogger().info("Location Cache initialized for " + locationCache.size()
+                + " worlds. Target size per world: " + cacheSize);
     }
 
     public void shutdown() {
@@ -76,42 +82,44 @@ public class LocationCacheManager {
         if (!cacheFile.exists()) {
             plugin.saveResource("cache.yml", false);
         }
-        
+
         cacheConfig = new YamlConfiguration();
-        
+
         try {
             String yamlContent = new String(java.nio.file.Files.readAllBytes(cacheFile.toPath()));
-            
+
             org.yaml.snakeyaml.Yaml yaml = new org.yaml.snakeyaml.Yaml();
             @SuppressWarnings("unchecked")
             Map<String, Object> data = yaml.load(yamlContent);
-            
+
             if (data != null && data.containsKey("cache")) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> cacheSection = (Map<String, Object>) data.get("cache");
-                
+
                 if (cacheSection != null) {
                     for (Map.Entry<String, Object> entry : cacheSection.entrySet()) {
                         String worldName = entry.getKey();
-                        
+
                         World world = plugin.getServer().getWorld(worldName);
                         if (world == null) {
-                            plugin.debug("Skipping cache loading for world '" + worldName + "' - world not loaded yet.");
+                            plugin.getRTPLogger().debug("CACHE",
+                                    "Skipping cache loading for world '" + worldName + "' - world not loaded yet.");
+
                             continue;
                         }
-                        
+
                         Object value = entry.getValue();
                         if (!(value instanceof List)) {
                             continue;
                         }
-                        
+
                         @SuppressWarnings("unchecked")
                         List<Object> rawLocations = (List<Object>) value;
-                        
+
                         if (rawLocations.isEmpty()) {
                             continue;
                         }
-                        
+
                         List<Location> validLocations = new ArrayList<>();
                         for (Object rawLoc : rawLocations) {
                             try {
@@ -119,7 +127,7 @@ public class LocationCacheManager {
                                     @SuppressWarnings("unchecked")
                                     Map<String, Object> locMap = (Map<String, Object>) rawLoc;
                                     String locWorldName = (String) locMap.get("world");
-                                    
+
                                     if (locWorldName != null && plugin.getServer().getWorld(locWorldName) != null) {
                                         try {
                                             Location loc = Location.deserialize(locMap);
@@ -127,18 +135,24 @@ public class LocationCacheManager {
                                                 validLocations.add(loc);
                                             }
                                         } catch (IllegalArgumentException e) {
-                                            plugin.debug("Skipped invalid location for world '" + locWorldName + "': " + e.getMessage());
+                                            plugin.getRTPLogger().debug("CACHE", "Skipped invalid location for world '"
+                                                    + locWorldName + "': " + e.getMessage());
+
                                         }
                                     }
                                 }
                             } catch (Exception e) {
-                                plugin.debug("Failed to process location entry: " + e.getMessage());
+                                plugin.getRTPLogger().debug("CACHE",
+                                        "Failed to process location entry: " + e.getMessage());
+
                             }
                         }
-                        
+
                         if (!validLocations.isEmpty()) {
                             locationCache.put(worldName, new ConcurrentLinkedQueue<>(validLocations));
-                            plugin.debug("Loaded " + validLocations.size() + " cached locations for world: " + worldName);
+                            plugin.getRTPLogger().debug("CACHE",
+                                    "Loaded " + validLocations.size() + " cached locations for world: " + worldName);
+
                         }
                     }
                 }
@@ -165,7 +179,8 @@ public class LocationCacheManager {
         }
         try {
             cacheConfig.save(cacheFile);
-            plugin.getLogger().info("Saved " + locationCache.values().stream().mapToInt(Queue::size).sum() + " locations to cache.yml.");
+            plugin.getLogger().info("Saved " + locationCache.values().stream().mapToInt(Queue::size).sum()
+                    + " locations to cache.yml.");
         } catch (IOException e) {
             plugin.getLogger().log(Level.SEVERE, "Could not save location cache to file.", e);
         }
@@ -183,7 +198,8 @@ public class LocationCacheManager {
     }
 
     private void refillCache(World world) {
-        if (!plugin.getConfigManager().isCacheEnabledForWorld(world)) return;
+        if (!plugin.getConfigManager().isCacheEnabledForWorld(world))
+            return;
 
         ConcurrentLinkedQueue<Location> queue = locationCache.get(world.getName());
         if (queue == null || queue.size() >= cacheSize) {
@@ -196,7 +212,9 @@ public class LocationCacheManager {
         }
 
         if (isRefilling.replace(world.getName(), false, true)) {
-            plugin.debug("Starting refill worker for world '" + world.getName() + "'. Current size: " + queue.size() + "/" + cacheSize);
+            plugin.getRTPLogger().debug("CACHE", "Starting refill worker for world '" + world.getName()
+                    + "'. Current size: " + queue.size() + "/" + cacheSize);
+
             fillQueueWorker(world, cacheSize - queue.size());
         }
     }
@@ -204,7 +222,9 @@ public class LocationCacheManager {
     private void fillQueueWorker(World world, int locationsNeeded) {
         if (locationsNeeded <= 0) {
             isRefilling.put(world.getName(), false);
-            plugin.debug("Cache for world '" + world.getName() + "' is now full. Stopping worker.");
+            plugin.getRTPLogger().debug("CACHE",
+                    "Cache for world '" + world.getName() + "' is now full. Stopping worker.");
+
             return;
         }
 
@@ -212,11 +232,12 @@ public class LocationCacheManager {
                 .whenCompleteAsync((locationOpt, throwable) -> {
                     try {
                         if (throwable != null) {
-                            plugin.getLogger().warning("Exception during location search for '" + world.getName() + "' cache: " + throwable.getMessage());
+                            plugin.getLogger().warning("Exception during location search for '" + world.getName()
+                                    + "' cache: " + throwable.getMessage());
                             failedWorldsCooldown.put(world.getName(), System.currentTimeMillis());
                             return;
                         }
-                        
+
                         if (locationOpt.isPresent()) {
                             ConcurrentLinkedQueue<Location> queue = locationCache.get(world.getName());
                             if (queue != null) {
@@ -225,11 +246,13 @@ public class LocationCacheManager {
                             failedWorldsCooldown.remove(world.getName());
                             plugin.getFoliaScheduler().runAsync(() -> fillQueueWorker(world, locationsNeeded - 1));
                         } else {
-                            plugin.getLogger().warning("Failed to find a safe location for '" + world.getName() + "' cache after many attempts. Pausing searches for this world for 1 minute.");
+                            plugin.getLogger().warning("Failed to find a safe location for '" + world.getName()
+                                    + "' cache after many attempts. Pausing searches for this world for 1 minute.");
                             failedWorldsCooldown.put(world.getName(), System.currentTimeMillis());
                         }
                     } catch (Exception e) {
-                        plugin.getLogger().severe("Unexpected error in fillQueueWorker for '" + world.getName() + "': " + e.getMessage());
+                        plugin.getLogger().severe(
+                                "Unexpected error in fillQueueWorker for '" + world.getName() + "': " + e.getMessage());
                         e.printStackTrace();
                     } finally {
                         if (throwable != null || !locationOpt.isPresent() || locationsNeeded <= 1) {
@@ -241,7 +264,8 @@ public class LocationCacheManager {
 
     public Optional<Location> getLocation(World world) {
         if (world == null) {
-            plugin.getLogger().log(Level.WARNING, "Attempted to get a cached location for a null world.", new Throwable());
+            plugin.getLogger().log(Level.WARNING, "Attempted to get a cached location for a null world.",
+                    new Throwable());
             return Optional.empty();
         }
         if (!cacheEnabled) {
@@ -249,13 +273,13 @@ public class LocationCacheManager {
         }
         return Optional.ofNullable(locationCache.getOrDefault(world.getName(), new ConcurrentLinkedQueue<>()).poll());
     }
-    
+
     public int getTotalCachedLocations() {
         if (!cacheEnabled || locationCache == null) {
             return 0;
         }
         return locationCache.values().stream()
-            .mapToInt(Queue::size)
-            .sum();
+                .mapToInt(Queue::size)
+                .sum();
     }
 }

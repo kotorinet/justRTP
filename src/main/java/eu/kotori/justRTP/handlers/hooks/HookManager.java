@@ -2,6 +2,7 @@ package eu.kotori.justRTP.handlers.hooks;
 import eu.kotori.justRTP.JustRTP;
 import eu.kotori.justRTP.handlers.hooks.impl.KingdomXHook;
 import eu.kotori.justRTP.handlers.hooks.impl.TownsAndNationsHook;
+import eu.kotori.justRTP.handlers.hooks.impl.SimpleClaimSystemHook;
 import eu.kotori.justRTP.handlers.hooks.impl.WorldGuardHook;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -34,6 +35,11 @@ public class HookManager {
         if (isPluginEnabled("TownsAndNations")) {
             activeHooks.add(new TownsAndNationsHook());
             plugin.getLogger().info("Successfully hooked into Towns and Nations.");
+        }
+        
+        if (isPluginEnabled("SimpleClaimSystem")) {
+            activeHooks.add(new SimpleClaimSystemHook());
+            plugin.getLogger().info("Successfully hooked into SimpleClaimSystem.");
         }
     }
     public boolean isLocationSafe(Location location) {

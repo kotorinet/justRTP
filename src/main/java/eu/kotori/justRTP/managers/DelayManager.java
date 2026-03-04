@@ -19,6 +19,7 @@ public class DelayManager {
     public DelayManager(JustRTP plugin) {
         this.plugin = plugin;
     }
+
     public void startDelay(Player player, Runnable onDelayFinish, int seconds) {
         if (seconds <= 0) {
             onDelayFinish.run();
@@ -26,19 +27,50 @@ public class DelayManager {
         }
 
         initialLocations.put(player.getUniqueId(), player.getLocation());
-        plugin.getEffectsManager().applyPreTeleportEffects(player, seconds);
         plugin.getAnimationManager().playDelayAnimation(player, seconds);
-    plugin.getLocaleManager().sendMessage(player, "teleport.delay", Placeholder.unparsed("time", TimeUtils.formatDuration(seconds)));
 
-        CancellableTask task = plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
-            delayedTasks.remove(player.getUniqueId());
-            initialLocations.remove(player.getUniqueId());
-            plugin.getAnimationManager().stopDelayAnimation(player);
-            onDelayFinish.run();
-        }, (long) seconds * 20L);
+        plugin.getLocaleManager().sendMessage(player, "teleport.delay",
+                Placeholder.unparsed("time", TimeUtils.formatDuration(seconds)));
+        plugin.getEffectsManager().sendDelayActionBar(player, seconds);
+        plugin.getEffectsManager().playDelaySound(player, seconds, seconds);
+
+        java.util.concurrent.atomic.AtomicInteger countdown = new java.util.concurrent.atomic.AtomicInteger(seconds);
+
+        CancellableTask task = plugin.getFoliaScheduler().runTimerAtEntity(player, () -> {
+            int remaining = countdown.decrementAndGet();
+
+            if (remaining <= 0) {
+                CancellableTask removedTask = delayedTasks.remove(player.getUniqueId());
+                if (removedTask != null) {
+                    removedTask.cancel();
+                }
+
+                initialLocations.remove(player.getUniqueId());
+                plugin.getAnimationManager().stopDelayAnimation(player);
+                plugin.getEffectsManager().removeTransitionEffects(player);
+
+                onDelayFinish.run();
+                return;
+            }
+
+            plugin.getEffectsManager().sendDelayActionBar(player, remaining);
+            plugin.getEffectsManager().playDelaySound(player, remaining, seconds);
+
+
+        }, 20L, 20L);
 
         delayedTasks.put(player.getUniqueId(), task);
+
+        plugin.getEffectsManager().applyPreTeleportEffects(player, seconds);
     }
+
+    private void cancelTask(UUID uuid) {
+        CancellableTask task = delayedTasks.get(uuid);
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
     public boolean isDelayed(UUID uuid) {
         return delayedTasks.containsKey(uuid);
     }

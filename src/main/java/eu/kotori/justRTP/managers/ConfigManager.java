@@ -34,7 +34,8 @@ public class ConfigManager {
     }
 
     public String resolveWorldAlias(String input) {
-        if (input == null) return null;
+        if (input == null)
+            return null;
         return worldAliases.getOrDefault(input.toLowerCase(), input);
     }
 
@@ -53,32 +54,58 @@ public class ConfigManager {
         }
         return groupsSection.getKeys(false).stream()
                 .filter(groupName -> player.hasPermission("justrtp.group." + groupName))
-                .min(Comparator.comparingInt(groupName -> groupsSection.getInt(groupName + ".priority", Integer.MAX_VALUE)));
+                .min(Comparator
+                        .comparingInt(groupName -> groupsSection.getInt(groupName + ".priority", Integer.MAX_VALUE)));
+    }
+
+    private Optional<String> getHighestPriorityGroupWithWorldConfig(Player player, String worldName, String path) {
+        if (player == null) {
+            return Optional.empty();
+        }
+
+        ConfigurationSection groupsSection = plugin.getConfig().getConfigurationSection("permission_groups.groups");
+        if (!plugin.getConfig().getBoolean("permission_groups.enabled") || groupsSection == null) {
+            return Optional.empty();
+        }
+
+        return groupsSection.getKeys(false).stream()
+                .filter(groupName -> player.hasPermission("justrtp.group." + groupName))
+                .filter(groupName -> plugin.getConfig().contains(
+                        "permission_groups.groups." + groupName + ".worlds." + worldName + "." + path))
+                .min(Comparator
+                        .comparingInt(groupName -> groupsSection.getInt(groupName + ".priority", Integer.MAX_VALUE)));
     }
 
     public int getInt(Player player, World world, String path, int def) {
-        Optional<String> groupOpt = getHighestPriorityGroup(player);
+        Optional<String> groupOpt = getHighestPriorityGroupWithWorldConfig(player, world.getName(), path);
         if (groupOpt.isPresent()) {
             String group = groupOpt.get();
             String groupPath = "permission_groups.groups." + group + ".worlds." + world.getName() + "." + path;
-            if (plugin.getConfig().contains(groupPath)) {
-                return plugin.getConfig().getInt(groupPath);
-            }
+            return plugin.getConfig().getInt(groupPath);
         }
         String customWorldPath = "custom_worlds." + world.getName() + "." + path;
         String generalPath = "settings." + path;
         return plugin.getConfig().getInt(customWorldPath, plugin.getConfig().getInt(generalPath, def));
     }
 
+    public int getIntByWorldName(Player player, String worldName, String path, int def) {
+        Optional<String> groupOpt = getHighestPriorityGroupWithWorldConfig(player, worldName, path);
+        if (groupOpt.isPresent()) {
+            String group = groupOpt.get();
+            String groupPath = "permission_groups.groups." + group + ".worlds." + worldName + "." + path;
+            return plugin.getConfig().getInt(groupPath);
+        }
+        String customWorldPath = "custom_worlds." + worldName + "." + path;
+        String generalPath = "settings." + path;
+        return plugin.getConfig().getInt(customWorldPath, plugin.getConfig().getInt(generalPath, def));
+    }
 
     public double getDouble(Player player, World world, String path, double def) {
-        Optional<String> groupOpt = getHighestPriorityGroup(player);
+        Optional<String> groupOpt = getHighestPriorityGroupWithWorldConfig(player, world.getName(), path);
         if (groupOpt.isPresent()) {
             String group = groupOpt.get();
             String groupPath = "permission_groups.groups." + group + ".worlds." + world.getName() + "." + path;
-            if (plugin.getConfig().contains(groupPath)) {
-                return plugin.getConfig().getDouble(groupPath);
-            }
+            return plugin.getConfig().getDouble(groupPath);
         }
         String customWorldPath = "custom_worlds." + world.getName() + "." + path;
         String generalPath = "settings." + path;
@@ -93,50 +120,53 @@ public class ConfigManager {
         return plugin.getConfig().getDouble(economyPath, def);
     }
 
-
     public int getCooldown(Player player, World world) {
-        if (player.hasPermission("justrtp.cooldown.bypass")) return 0;
+        if (player.hasPermission("justrtp.cooldown.bypass"))
+            return 0;
         return getInt(player, world, "cooldown", 30);
     }
 
     public int getDelay(Player player, World world) {
-        if (player.hasPermission("justrtp.delay.bypass")) return 0;
+        if (player.hasPermission("justrtp.delay.bypass"))
+            return 0;
         return getInt(player, world, "delay", 3);
     }
 
     public double getEconomyCost(Player player, World world) {
-        if (player.hasPermission("justrtp.cost.bypass")) return 0.0;
+        if (player.hasPermission("justrtp.cost.bypass"))
+            return 0.0;
         return getDouble(player, world, "cost", 100.0);
     }
 
     public double getRadiusBasedCost(World world, int maxRadius) {
         String worldPath = "custom_worlds." + world.getName() + ".radius_pricing";
-        
+
         if (!plugin.getConfig().getBoolean(worldPath + ".enabled", false)) {
             return 0.0;
         }
-        
+
         ConfigurationSection tiersSection = plugin.getConfig().getConfigurationSection(worldPath + ".tiers");
         if (tiersSection == null) {
             return 0.0;
         }
-        
+
         double tierCost = 0.0;
         int matchedMaxRadius = Integer.MAX_VALUE;
-        
+
         for (String tierKey : tiersSection.getKeys(false)) {
             ConfigurationSection tier = tiersSection.getConfigurationSection(tierKey);
-            if (tier == null) continue;
-            
+            if (tier == null)
+                continue;
+
             int tierMaxRadius = tier.getInt("max_radius", 0);
             double cost = tier.getDouble("cost", 0.0);
-            
+
             if (maxRadius <= tierMaxRadius && tierMaxRadius < matchedMaxRadius) {
                 matchedMaxRadius = tierMaxRadius;
                 tierCost = cost;
             }
         }
-        
+
         return tierCost;
     }
 
@@ -161,7 +191,8 @@ public class ConfigManager {
     }
 
     public boolean isProxyMySqlEnabled() {
-        return YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "mysql.yml")).getBoolean("enabled", false);
+        return YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "mysql.yml")).getBoolean("enabled",
+                false);
     }
 
     public boolean isDebugMode() {
@@ -244,4 +275,3 @@ public class ConfigManager {
         return plugin.getConfig().getLong("jump_rtp.jump_time_window", 500);
     }
 }
-

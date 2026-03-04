@@ -5,12 +5,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 
+import java.util.List;
+
 public class RTPZone {
     private final String id;
     private final String worldName;
     private final Cuboid cuboid;
     private final int interval;
-    private final String target;
+    private final List<String> targets;
     private final int minRadius;
     private final int maxRadius;
     private final int minSpreadDistance;
@@ -33,14 +35,36 @@ public class RTPZone {
         }
         this.cuboid = new Cuboid(pos1, pos2);
         this.interval = section.getInt("interval", 30);
-        this.target = section.getString("target");
-        if(this.target == null) {
+
+        this.targets = new java.util.ArrayList<>();
+        if (section.isList("target")) {
+            this.targets.addAll(section.getStringList("target"));
+        } else {
+            String targetStr = section.getString("target");
+            if (targetStr != null) {
+                if (targetStr.contains(",")) {
+                    for (String t : targetStr.split(",")) {
+                        String trimmed = t.trim();
+                        if (!trimmed.isEmpty()) {
+                            this.targets.add(trimmed);
+                        }
+                    }
+                } else {
+                    this.targets.add(targetStr);
+                }
+            }
+        }
+
+        if (this.targets.isEmpty()) {
             throw new IllegalArgumentException("Missing target world/server for zone '" + id + "'.");
         }
+
         this.minRadius = section.getInt("min-radius", 100);
         this.maxRadius = section.getInt("max-radius", 1000);
-        this.minSpreadDistance = section.getInt("min-spread-distance", JustRTP.getInstance().getConfig().getInt("zone_teleport_settings.min_spread_distance", 5));
-        this.maxSpreadDistance = section.getInt("max-spread-distance", JustRTP.getInstance().getConfig().getInt("zone_teleport_settings.max_spread_distance", 15));
+        this.minSpreadDistance = section.getInt("min-spread-distance",
+                JustRTP.getInstance().getConfig().getInt("zone_teleport_settings.min_spread_distance", 5));
+        this.maxSpreadDistance = section.getInt("max-spread-distance",
+                JustRTP.getInstance().getConfig().getInt("zone_teleport_settings.max_spread_distance", 15));
 
         if (section.isConfigurationSection("hologram")) {
             this.hologramLocation = section.getLocation("hologram.location");
@@ -53,7 +77,7 @@ public class RTPZone {
         section.set("pos1", cuboid.getLowerNE());
         section.set("pos2", cuboid.getUpperSW());
         section.set("interval", interval);
-        section.set("target", target);
+        section.set("target", targets);
         section.set("min-radius", minRadius);
         section.set("max-radius", maxRadius);
         section.set("min-spread-distance", minSpreadDistance);
@@ -74,21 +98,58 @@ public class RTPZone {
         return cuboid.getCenter();
     }
 
-    public String getId() { return id; }
-    public int getInterval() { return interval; }
-    public String getTarget() { return target; }
-    public int getMinRadius() { return minRadius; }
-    public int getMaxRadius() { return maxRadius; }
-    public int getMinSpreadDistance() { return minSpreadDistance; }
-    public int getMaxSpreadDistance() { return maxSpreadDistance; }
+    public String getId() {
+        return id;
+    }
 
-    public String getOnEnterEffectsPath() { return configPath + ".effects.on_enter"; }
-    public String getOnLeaveEffectsPath() { return configPath + ".effects.on_leave"; }
-    public String getWaitingEffectsPath() { return configPath + ".effects.waiting"; }
-    public String getTeleportEffectsPath() { return configPath + ".effects.teleport"; }
+    public int getInterval() {
+        return interval;
+    }
 
-    public Location getHologramLocation() { return hologramLocation; }
-    public int getHologramViewDistance() { return hologramViewDistance; }
+    public List<String> getTargets() {
+        return targets;
+    }
+
+    public int getMinRadius() {
+        return minRadius;
+    }
+
+    public int getMaxRadius() {
+        return maxRadius;
+    }
+
+    public int getMinSpreadDistance() {
+        return minSpreadDistance;
+    }
+
+    public int getMaxSpreadDistance() {
+        return maxSpreadDistance;
+    }
+
+    public String getOnEnterEffectsPath() {
+        return configPath + ".effects.on_enter";
+    }
+
+    public String getOnLeaveEffectsPath() {
+        return configPath + ".effects.on_leave";
+    }
+
+    public String getWaitingEffectsPath() {
+        return configPath + ".effects.waiting";
+    }
+
+    public String getTeleportEffectsPath() {
+        return configPath + ".effects.teleport";
+    }
+
+    public Location getHologramLocation() {
+        return hologramLocation;
+    }
+
+    public int getHologramViewDistance() {
+        return hologramViewDistance;
+    }
+
     public void setHologramData(Location location, int viewDistance) {
         this.hologramLocation = location;
         this.hologramViewDistance = viewDistance;

@@ -1,8 +1,7 @@
 # ----------------------------------------------------------------
 # JustRTP Configuration
 # ----------------------------------------------------------------
-# CONFIG VERSION - DO NOT CHANGE THIS
-config-version: 24
+config-version: 29
 # ----------------------------------------------------------------
 
 settings:
@@ -43,6 +42,14 @@ settings:
   # Example:
   #   settings.default_world: "world"
   default_world: ""
+  
+  # Should the plugin check for updates on startup?
+  # If true, the plugin will check Spigot for newer versions.
+  check_for_updates: true
+  
+  # Should OPs and admins be notified when they join if an update is available?
+  # Requires check_for_updates to be enabled.
+  notify_ops_on_update: true
 
 # --- bStats Metrics ---
 # bStats collects some anonymous data for plugin authors like server version, number of players, etc.
@@ -126,12 +133,27 @@ location_cache:
   # Only worlds listed here will have a location cache.
   # The names MUST EXACTLY match your world folder names.
   #
-  # ⚠️ CRITICAL: Every world in rtp_settings.worlds.list MUST be here!
-  #   Missing worlds will get generateChunks=false → chunk loading fails → UNKNOWN errors!
+  # ⚠️ IMPORTANT: generate_chunks setting explained
   #
-  # For each world, you can specify if chunk generation is allowed:
-  #   generate_chunks: true  -> Recommended for large, explorable worlds (world, resources, custom biome worlds).
-  #   generate_chunks: false -> CRITICAL for small, pre-generated worlds (arenas, minigames, spawn).
+  #   generate_chunks: true (RECOMMENDED - Works everywhere)
+  #     ✅ Works in both explored AND unexplored worlds
+  #     ✅ Uses PaperLib's safe async chunk generation
+  #     ✅ No chunk corruption - proper async generation
+  #     ✅ Best for most servers (explored or new worlds)
+  #     ✅ Allows RTP to work anywhere within your world border
+  #
+  #   generate_chunks: false (Pre-generated worlds only)
+  #     ⚠️ Only works in already-explored/generated areas
+  #     ⚠️ Will fail to find locations in unexplored areas
+  #     ⚠️ Use only if you have fully pre-generated your world
+  #     ⚠️ Not recommended unless you know what you're doing
+  #
+  # How it works with generate_chunks: true:
+  #   - Plugin searches for safe RTP location
+  #   - PaperLib.teleportAsync() safely generates chunks asynchronously
+  #   - No corruption - uses Minecraft's proper generation system
+  #   - Works in both explored and unexplored areas
+  #   - Recommended for 99% of servers
   worlds:
     world:
       generate_chunks: true
@@ -192,6 +214,8 @@ first_join_rtp:
 # Automatically teleport a player when they respawn after death.
 respawn_rtp:
   enabled: false
+  # If true, the RTP delay (warmup) will be skipped for respawn teleports.
+  bypass_delay: true
   # A list of worlds where players should be randomly teleported on respawn.
   # An empty list [] means it's enabled in ALL worlds.
   worlds:
@@ -226,6 +250,22 @@ jump_rtp:
   jumps_required: 2
   # Time window in milliseconds for detecting multiple jumps (for double-jump detection)
   jump_time_window: 500
+
+# --- RTP Near Player ---
+# Teleport to a random safe location near a random online player in a world.
+# Usage: /rtp nearplayer [world]
+# Permission: justrtp.command.rtp.nearplayer
+nearplayer:
+  # Enable the Near Player RTP feature
+  enabled: true
+  # Minimum distance (in blocks) from the target player's location
+  min_radius: 100
+  # Maximum distance (in blocks) from the target player's location
+  max_radius: 500
+  # If true, the target player will NOT be notified that someone teleported near them
+  silent: false
+  # If true, the player executing the command can be selected as the target (excluded by default)
+  allow_self: false
 
 # --- Economy Settings (Requires Vault) ---
 economy:
@@ -385,6 +425,8 @@ effects:
     main_title: "<gradient:#20B2AA:#7FFFD4>Teleported!</gradient>"
     subtitle: "<gray>You have arrived at a new location.</gray>"
 
+  # --- Successful Teleport Feedback ---
+  # Shown on the action bar (above health/food) when the player arrives.
   action_bar:
     enabled: true
     text: "<green>You have been randomly teleported!</green>"
@@ -394,10 +436,61 @@ effects:
     enabled: true
     # Placeholders: 
     #   <server> - target server name
-    #   <time> or <elapsed> - seconds elapsed (counts up: 0, 1, 2...)
-    #   <remaining> or <countdown> - seconds remaining (counts down: 90, 89, 88...)
+    #   <time> or <elapsed> - seconds elapsed
+    #   <remaining> or <countdown> - seconds remaining
     #   <total> - total timeout seconds
     text: "<gray>Searching on <gradient:#20B2AA:#7FFFD4><server></gradient>... <dark_gray>| <gray>Time: <white><countdown>s</white>"
+
+  # --- Warmup / Delay Feedback ---
+  # Actionbar shown EVERY SECOND while the player is standing still awaiting teleportation.
+  # This displays a countdown timer to the player.
+  # NOTE: The message is primarily configured in messages.yml under 'teleport.delay'
+  # This config.yml setting is used as a fallback if messages.yml is not configured.
+  teleport_delay_bar:
+    enabled: true
+    # Placeholders:
+    #   <time> - Remaining seconds (counts down: 3, 2, 1...)
+    #   %prefix% - Prefix from messages.yml
+    # Example: If delay is 5 seconds, this will show:
+    #   "Teleporting in 5s... Don't move!"
+    #   "Teleporting in 4s... Don't move!"
+    #   "Teleporting in 3s... Don't move!" etc.
+    # To customize this message, edit messages.yml -> teleport.delay
+    text: "<yellow>Teleporting in <gold><time>s<yellow>... Don't move!"
+
+  # Sound played EVERY SECOND during the warmup/delay period.
+  # Creates an audible countdown effect for the player.
+  # The pitch AUTOMATICALLY INCREASES as the timer reaches 0 for a premium "count-down" effect.
+  teleport_delay_sound:
+    enabled: true
+    # Full list: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
+    # Popular options:
+    #   - BLOCK_NOTE_BLOCK_PLING (default - musical note)
+    #   - ENTITY_EXPERIENCE_ORB_PICKUP (XP sound)
+    #   - BLOCK_NOTE_BLOCK_BELL (bell sound)
+    #   - UI_BUTTON_CLICK (click sound)
+    name: "BLOCK_NOTE_BLOCK_PLING"
+    
+    # Volume of the sound. Range: 0.0 to 2.0 (Default: 1.0)
+    # 0.0 = silent, 1.0 = normal, 2.0 = very loud
+    volume: 1.0
+    
+    # Starting pitch of the sound. Range: 0.5 to 2.0 (Default: 1.0)
+    # The pitch will AUTOMATICALLY INCREASE by +0.4 as countdown progresses
+    # Example with pitch: 1.0 and 5 second delay:
+    #   5s remaining: pitch 1.0
+    #   4s remaining: pitch 1.1
+    #   3s remaining: pitch 1.2
+    #   2s remaining: pitch 1.3
+    #   1s remaining: pitch 1.4
+    # Lower values (0.5-0.8) = deeper sound
+    # Higher values (1.2-2.0) = higher pitched sound
+    pitch: 1.0
+    
+    # Dynamic pitch increase during countdown (Default: true)
+    # When enabled, pitch AUTOMATICALLY INCREASES by +0.4 as countdown progresses
+    # Set to false to keep the same pitch for all countdown sounds
+    dynamic_pitch: true
 
   # This action bar is shown when a player's local RTP request is queued.
   in_queue_action_bar:
@@ -473,6 +566,10 @@ zone_effects:
 disabled_worlds:
   - "world_prison"
   - "spawn"
+
+# Should the plugin send an error message when a player tries to use /rtp in a disabled world?
+# If false, the command will silently fail with no message.
+disabled_worlds_show_message: true
 
 # A list of blocks that are considered unsafe to teleport ONTO.
 blacklist_blocks:
@@ -623,3 +720,247 @@ permission_groups:
           max_radius: 7500
           min_radius: 500
           cost: 0.0
+
+# --- RTP GUI Settings ---
+# Graphical User Interface for world selection
+# Usage: /rtp gui
+# Permission: justrtp.command.rtp.gui
+rtp_gui:
+  # Enable the RTP GUI feature (default: false)
+  enabled: false
+  
+  # GUI title (supports MiniMessage format)
+  title: "<gradient:#20B2AA:#7FFFD4>Random Teleport</gradient>"
+  
+  # GUI size (must be multiple of 9, max 54)
+  # Options: 9, 18, 27, 36, 45, 54
+  size: 54
+  
+  # Cooldown between opening GUI (in seconds)
+  open_cooldown: 1
+  
+  # Play sound when GUI opens
+  # Set to "" to disable sound
+  open_sound: "BLOCK_CHEST_OPEN"
+  open_sound_volume: 1.0
+  open_sound_pitch: 1.0
+  
+  # Play sound when clicking a world button
+  # Set to "" to disable sound
+  click_sound: "UI_BUTTON_CLICK"
+  click_sound_volume: 1.0
+  click_sound_pitch: 1.0
+  
+  # Auto-refresh GUI every X ticks (20 ticks = 1 second)
+  # Updates cooldown status in real-time
+  # Set to 0 to disable auto-refresh
+  auto_refresh_ticks: 20
+  
+  # World buttons configuration
+  # Each world can have custom icon, name, lore, slot position
+  worlds:
+    overworld:
+      world_name: "world"
+      slot: 20
+      material: "GRASS_BLOCK"
+      enchanted: true
+      display_name: "<gradient:#90EE90:#32CD32>Overworld</gradient>"
+      lore:
+        - ""
+        - "<gray>Teleport to a random location"
+        - "<gray>in the <green>Overworld</green>"
+        - ""
+        - "<gray>Status: <cooldown>"
+        - "<gray>Economy: <cost>"
+        - ""
+        - "<yellow>▶ Click to teleport!"
+    
+    nether:
+      world_name: "world_nether"
+      slot: 22
+      material: "NETHERRACK"
+      enchanted: true
+      display_name: "<gradient:#FF4500:#8B0000>Nether</gradient>"
+      lore:
+        - ""
+        - "<gray>Teleport to a random location"
+        - "<gray>in the <red>Nether</red>"
+        - ""
+        - "<gray>Status: <cooldown>"
+        - "<gray>Economy: <cost>"
+        - "<gray>Radius: <min_radius>-<max_radius> blocks"
+        - ""
+        - "<yellow>▶ Click to teleport!"
+    
+    end:
+      world_name: "world_the_end"
+      slot: 24
+      material: "END_STONE"
+      enchanted: true
+      display_name: "<gradient:#9370DB:#4B0082>The End</gradient>"
+      lore:
+        - ""
+        - "<gray>Teleport to a random location"
+        - "<gray>in the <light_purple>End</light_purple>"
+        - ""
+        - "<gray>Status: <cooldown>"
+        - "<gray>Economy: <cost>"
+        - ""
+        - "<yellow>▶ Click to teleport!"
+    
+    
+    # Cross-server RTP example (requires MySQL proxy setup)
+    # survival_server:
+    #   world_name: "world"
+    #   server_name: "survival"  # Target server name
+    #   slot: 28
+    #   material: "DIAMOND_BLOCK"
+    #   enchanted: true
+    #   display_name: "<gradient:#00FF00:#00AA00>Survival Server</gradient>"
+    #   lore:
+    #     - ""
+    #     - "<gray>Teleport to the"
+    #     - "<green>Survival Server</green>"
+    #     - ""
+    #     - "<gray>Server: <server>"
+    #     - "<gray>Status: <cooldown>"
+    #     - ""
+    #     - "<yellow>? Click to teleport!"
+    # Add more custom worlds here following the same format
+    # Example for custom dimension:
+    # custom_world:
+    #   world_name: "custom"
+    #   slot: 26
+    #   material: "DIAMOND_BLOCK"
+    #   enchanted: false
+    #   display_name: "<aqua>Custom World</aqua>"
+    #   lore:
+    #     - ""
+    #     - "<gray>Custom dimension teleport"
+    #     - ""
+    #     - "<yellow>▶ Click to teleport!"
+  
+  # Decoration items (non-clickable)
+  decoration:
+    glass_border:
+      material: "GRAY_STAINED_GLASS_PANE"
+      display_name: " "
+      lore: []
+      slots: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18, 26, 27, 35, 36, 44, 45, 46, 47, 48, 50, 51, 52, 53]
+    
+    info_item:
+      material: "COMPASS"
+      display_name: "<gradient:#20B2AA:#7FFFD4>Random Teleport</gradient>"
+      lore:
+        - ""
+        - "<gray>Select a world to teleport to"
+        - "<gray>a random safe location!"
+        - ""
+        - "<aqua>▶ Powered by JustRTP"
+      slots: [49]
+  
+  # Close button
+  close_button:
+    enabled: true
+    slot: 53
+    material: "BARRIER"
+    display_name: "<red>Close</red>"
+    lore:
+      - ""
+      - "<gray>Click to close this menu"
+
+# --- Spectator Switch Settings ---
+# Floating player heads interface for world selection (spectator-like experience)
+# Usage: /rtp spectator
+# Permission: justrtp.command.rtp.spectator
+spectator_switch:
+  # Enable the Spectator Switch feature (default: false)
+  enabled: false
+  
+  # Display radius (distance of heads from player in blocks)
+  display_radius: 3.0
+  
+  # Cooldown between opening spectator switch (in seconds)
+  open_cooldown: 2
+  
+  # Auto-close after X seconds (0 = disabled)
+  auto_close_seconds: 30
+  
+  # World head configuration
+  # Each world displays as a floating player head that can be right-clicked
+  worlds:
+    overworld:
+      world_name: "world"
+      display_name: "<gradient:#90EE90:#32CD32>⬢ Overworld</gradient>"
+      skull_owner: ""  # Leave empty for default head, or set player name
+      skull_texture: ""  # Custom texture (requires additional setup)
+    
+    nether:
+      world_name: "world_nether"
+      display_name: "<gradient:#FF4500:#8B0000>⬢ Nether</gradient>"
+      skull_owner: ""
+      skull_texture: ""
+    
+    end:
+      world_name: "world_the_end"
+      display_name: "<gradient:#9370DB:#4B0082>⬢ The End</gradient>"
+      skull_owner: ""
+      skull_texture: ""
+    
+    # Add more custom worlds here
+    # custom_world:
+    #   world_name: "custom"
+    #   display_name: "<aqua>⬢ Custom World</aqua>"
+    #   skull_owner: "PlayerName"
+    #   skull_texture: ""
+
+# --- Near Claim RTP Settings ---
+# Innovative feature: Teleport near other players' claimed territories
+# Supports: SimpleClaim, GriefPrevention, Lands (auto-detected)
+# Usage: /rtp nearclaim
+# Permission: justrtp.command.rtp.nearclaim
+near_claim_rtp:
+  # Enable the Near Claim RTP feature (default: false)
+  enabled: false
+  
+  # Target world for near claim teleports
+  # Leave empty ("") to use player's current world
+  target_world: ""
+  
+  # Minimum distance from claim center (in blocks)
+  # Players will spawn at least this far from the claim
+  min_distance: 50
+  
+  # Maximum distance from claim center (in blocks)
+  # Players will spawn at most this far from the claim
+  max_distance: 200
+  
+  # Maximum attempts to find a safe location near a claim
+  max_attempts: 10
+  
+  # Exclude player's own claims from selection
+  # If true, players cannot teleport near their own claims
+  exclude_own_claims: true
+  
+  # Cooldown between uses (in seconds)
+  # Set to 0 to disable cooldown
+  cooldown: 60
+  
+  # Economy cost for using near claim RTP
+  # Requires Vault and an economy plugin
+  # Set to 0.0 to make it free
+  cost: 0.0
+
+# --- Help Command Settings ---
+# Configure the /rtp help command behavior
+help_command:
+  # If true, the help command output will only show commands the player has permission for.
+  # If false, all commands are shown (original behavior).
+  filter_by_permission: true
+
+# --- RTP Zone Command Settings ---
+# Control the /rtpzone command availability
+rtpzone_command:
+  # If false, the /rtpzone command will be completely disabled.
+  # Players who try to use it will receive "no permission" or "unknown command".
+  enabled: true

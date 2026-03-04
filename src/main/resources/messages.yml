@@ -2,7 +2,7 @@
 # JustRTP Message Configuration
 # ----------------------------------------------------------------
 # CONFIG VERSION - DO NOT CHANGE THIS
-config-version: 15
+config-version: 19
 # ----------------------------------------------------------------
 # NOTE: The <time> placeholder is automatically formatted in human-readable format
 #       Examples: "5m 38s", "1h 2m", "30s"
@@ -78,6 +78,7 @@ economy:
 zone:
   command:
     usage: "%prefix% <red>Usage: /rtpzone <setup|delete|list|cancel|sethologram|delhologram|ignore|sync|push|pull|status></red>"
+    usage_limited: "%prefix% <red>Usage: /rtpzone ignore</red>"
     setup_usage: "%prefix% <red>Usage: /rtpzone setup <zone_id></red>"
     delete_usage: "%prefix% <red>Usage: /rtpzone delete <zone_id></red>"
     sethologram_usage: "%prefix% <red>Usage: /rtpzone sethologram <zone_id> [y_offset]</red>"
@@ -163,8 +164,8 @@ zone_sync:
 
 # --- Spawn World Redirect Messages ---
 spawn_redirect:
-  redirected: "%prefix% <gray>Spawn world detected! Redirecting to <aqua><world></aqua>...</gray>"
-  target_not_found: "%prefix% <red>Target world '<world>' for spawn redirect not found. Using spawn world.</red>"
+  redirected: "%prefix% <gray>Spawn world detected! Redirecting to <aqua><to_world></aqua>...</gray>"
+  target_not_found: "%prefix% <red>Target world '<to_world>' for spawn redirect not found. Using spawn world.</red>"
 
 # --- Custom Location Messages ---
 custom_locations:
@@ -182,3 +183,40 @@ jump_rtp:
   cooldown: "%prefix% <red>Jump RTP is on cooldown. Wait <time> before jumping again.</red>"
   disabled_world: "%prefix% <red>Jump RTP is not enabled in this world.</red>"
   feature_disabled: "%prefix% <red>Jump RTP feature is disabled.</red>"
+
+# --- Near Player RTP Messages ---
+nearplayer:
+  searching: "%prefix% <gray>Searching for a safe location near a player in <aqua><world></aqua>...</gray>"
+  success: "%prefix% <green>Teleported near a player in <aqua><world></aqua>!</green>"
+  no_players: "%prefix% <red>No eligible online players found in <aqua><world></aqua>.</red>"
+  feature_disabled: "%prefix% <red>Near Player RTP feature is disabled.</red>"
+  notify_target: "%prefix% <gray><player> teleported to your vicinity!</gray>"
+
+# --- RTP GUI Messages ---
+gui:
+  feature_disabled: "%prefix% <red>RTP GUI feature is disabled.</red>"
+  cooldown: "%prefix% <red>Please wait <time> seconds before opening the GUI again.</red>"
+  cooldown_active: "<red>Cooldown: <time>s"
+  cooldown_ready: "<green>Ready!"
+  cost_display: "<gold>Cost: $<cost>"
+  cost_free: "<green>Free!"
+
+# --- Spectator Switch Messages ---
+spectator_switch:
+  feature_disabled: "%prefix% <red>Spectator Switch feature is disabled.</red>"
+  opened: "%prefix% <gradient:#20B2AA:#7FFFD4>Right-click a world head to teleport!</gradient>"
+  cooldown: "%prefix% <red>Please wait <time> seconds before opening Spectator Switch again.</red>"
+  timeout: "%prefix% <gray>Spectator Switch closed automatically.</gray>"
+  no_worlds: "%prefix% <red>No worlds available for Spectator Switch.</red>"
+
+# --- Near Claim RTP Messages ---
+near_claim_rtp:
+  feature_disabled: "%prefix% <red>Near Claim RTP feature is disabled.</red>"
+  searching: "%prefix% <gradient:#20B2AA:#7FFFD4>Searching for a claim to teleport near...</gradient>"
+  success: "%prefix% <green>Teleported near <owner>'s claim at <x>, <y>, <z>!</green>"
+  cooldown: "%prefix% <red>Please wait <time> seconds before using Near Claim RTP again.</red>"
+  no_world: "%prefix% <red>Target world not found.</red>"
+  no_claims: "%prefix% <red>No claims found in this world.</red>"
+  no_other_claims: "%prefix% <red>No other players' claims found in this world.</red>"
+  no_safe_location: "%prefix% <red>Could not find a safe location near any claim. Please try again.</red>"
+  teleport_failed: "%prefix% <red>Teleportation failed. Please try again.</red>"

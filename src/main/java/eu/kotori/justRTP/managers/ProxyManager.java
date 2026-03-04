@@ -20,11 +20,13 @@ public class ProxyManager {
 
     public void sendPlayerToServer(Player player, String serverName) {
         if (!isProxyEnabled()) {
-            plugin.debug("Attempted to send player " + player.getName() + " to server " + serverName + ", but proxy feature is disabled.");
+            plugin.getRTPLogger().debug("PROXY", "Attempted to send player " + player.getName() + " to server "
+                    + serverName + ", but proxy feature is disabled.");
             return;
         }
 
-        plugin.debug("Sending player " + player.getName() + " to proxy server '" + serverName + "' via " + BUNGEE_CORD_CHANNEL + " channel.");
+        plugin.getRTPLogger().debug("PROXY", "Sending player " + player.getName() + " to proxy server '" + serverName
+                + "' via " + BUNGEE_CORD_CHANNEL + " channel.");
 
         ByteArrayDataOutput out = ByteStreams.newDataOutput();
         out.writeUTF("Connect");

@@ -2,7 +2,7 @@
 # JustRTP Zones Configuration
 # ----------------------------------------------------------------
 # CONFIG VERSION - DO NOT CHANGE THIS
-config-version: 11
+config-version: 12
 # ----------------------------------------------------------------
 #
 # This file stores the configurations for your RTP zones.
@@ -18,6 +18,8 @@ config-version: 11
 #   interval: The time in seconds for the global teleport timer.
 #
 #   target: The destination world (on this server) or server (on your proxy network).
+#           You can specify multiple targets separated by commas (e.g., "server1, server2, world3").
+#           A random target will be chosen from the list for each teleportation wave.
 #
 #   min-radius & max-radius: The min/max distance for the random teleport from the world's center.
 #

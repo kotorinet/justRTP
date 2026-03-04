@@ -15,9 +15,18 @@ import java.util.stream.Collectors;
 
 public class RTPTabCompleter implements TabCompleter {
     private final JustRTP plugin;
-    public RTPTabCompleter(JustRTP plugin) { this.plugin = plugin; }
+
+    public RTPTabCompleter(JustRTP plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
-    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias,
+            @NotNull String[] args) {
+        if (!plugin.getCommandManager().isAliasEnabled(alias)) {
+            return Collections.emptyList();
+        }
+
         final List<String> completions = new ArrayList<>();
         final String currentArg = args[args.length - 1];
         final List<String> currentArgs = new ArrayList<>(Arrays.asList(args).subList(0, args.length - 1));
@@ -25,21 +34,59 @@ public class RTPTabCompleter implements TabCompleter {
         Set<String> options = new HashSet<>();
 
         if (args.length == 1) {
-            options.add("help");
-            
-            if (sender.hasPermission("justrtp.command.reload")) options.add("reload");
-            if (sender.hasPermission("justrtp.admin")) options.add("proxystatus");
-            
+            if (sender.hasPermission("justrtp.command.help")) {
+                options.add("help");
+            }
+
+            if (sender.hasPermission("justrtp.command.reload"))
+                options.add("reload");
+            if (sender.hasPermission("justrtp.admin"))
+                options.add("proxystatus");
+
             boolean economyEnabled = plugin.getConfig().getBoolean("economy.enabled", false);
             if (economyEnabled && sender.hasPermission("justrtp.command.confirm")) {
                 options.add("confirm");
             }
-            
-            if (sender.hasPermission("justrtp.command.rtp.location")) options.add("location");
 
-            boolean creditsPermissionRequired = plugin.getConfig().getBoolean("settings.credits_command_requires_permission", true);
+            if (sender.hasPermission("justrtp.command.rtp.location") && sender instanceof Player player) {
+                if (!plugin.getCustomLocationManager().getAvailableLocationIds(player).isEmpty()) {
+                    options.add("location");
+                }
+            }
+
+            if (sender.hasPermission("justrtp.command.rtp.nearplayer")
+                    && plugin.getConfig().getBoolean("nearplayer.enabled", true)) {
+                options.add("nearplayer");
+            }
+
+            if (sender.hasPermission("justrtp.command.rtp.gui")
+                    && plugin.getConfig().getBoolean("rtp_gui.enabled", false)) {
+                options.add("gui");
+            }
+
+            if (sender.hasPermission("justrtp.command.rtp.spectator")
+                    && plugin.getConfig().getBoolean("spectator_switch.enabled", false)) {
+                options.add("spectator");
+            }
+
+            if (sender.hasPermission("justrtp.command.rtp.nearclaim")
+                    && plugin.getConfig().getBoolean("near_claim_rtp.enabled", false)) {
+                options.add("nearclaim");
+            }
+
+            boolean creditsPermissionRequired = plugin.getConfig()
+                    .getBoolean("settings.credits_command_requires_permission", true);
             if (!creditsPermissionRequired || sender.hasPermission("justrtp.command.credits")) {
                 options.add("credits");
+            }
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("nearplayer")) {
+            if (sender.hasPermission("justrtp.command.rtp.nearplayer")) {
+                Bukkit.getWorlds().stream()
+                        .filter(plugin.getRtpService()::isRtpEnabled)
+                        .map(World::getName)
+                        .forEach(options::add);
             }
         }
 
@@ -49,7 +96,9 @@ public class RTPTabCompleter implements TabCompleter {
             }
         }
 
-        if (sender.hasPermission("justrtp.command.rtp.world")) {
+        boolean worldPermDenied = sender.isPermissionSet("justrtp.command.rtp.world")
+                && !sender.hasPermission("justrtp.command.rtp.world");
+        if (!worldPermDenied) {
             boolean worldAlreadyPresent = Bukkit.getWorlds().stream().anyMatch(w -> currentArgs.contains(w.getName()));
             if (!worldAlreadyPresent) {
                 List<String> validWorlds = Bukkit.getWorlds().stream()
@@ -66,54 +115,41 @@ public class RTPTabCompleter implements TabCompleter {
         }
 
         if (sender.hasPermission("justrtp.command.rtp.others")) {
-            boolean playerAlreadyPresent = Bukkit.getOnlinePlayers().stream().anyMatch(p -> currentArgs.contains(p.getName()));
+            boolean playerAlreadyPresent = Bukkit.getOnlinePlayers().stream()
+                    .anyMatch(p -> currentArgs.contains(p.getName()));
             if (!playerAlreadyPresent) {
                 options.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList()));
+            }
+
+            if (playerAlreadyPresent && !currentArgs.contains("-c")) {
+                options.add("-c");
             }
         }
 
         if (plugin.getConfigManager().getProxyEnabled() && sender.hasPermission("justrtp.command.rtp.server")) {
-            boolean serverAlreadyPresent = plugin.getConfigManager().getProxyServers().stream().anyMatch(s -> currentArgs.stream().anyMatch(ca -> ca.equalsIgnoreCase(s)));
-            
+            boolean serverAlreadyPresent = plugin.getConfigManager().getProxyServers().stream()
+                    .anyMatch(s -> currentArgs.stream().anyMatch(ca -> ca.equalsIgnoreCase(s)));
+
             if (currentArg.contains(":")) {
                 String[] parts = currentArg.split(":", 2);
                 String serverPart = parts[0];
                 String worldPart = parts.length > 1 ? parts[1] : "";
-                
+
                 Optional<String> matchingServer = plugin.getConfigManager().getProxyServers().stream()
-                    .filter(s -> s.equalsIgnoreCase(serverPart))
-                    .findFirst();
-                
+                        .filter(s -> s.equalsIgnoreCase(serverPart))
+                        .findFirst();
+
                 if (matchingServer.isPresent()) {
-                    if (plugin.getDatabaseManager() != null && plugin.getDatabaseManager().isConnected()) {
-                        try {
-                            List<String> worlds = plugin.getDatabaseManager().getServerWorlds(matchingServer.get()).get();
-                            for (String world : worlds) {
-                                if (world.toLowerCase().startsWith(worldPart.toLowerCase())) {
-                                    completions.add(serverPart + ":" + world);
-                                }
-                            }
-                            if (worlds.isEmpty()) {
-                                for (String defaultWorld : new String[]{"world", "world_nether", "world_the_end"}) {
-                                    if (defaultWorld.toLowerCase().startsWith(worldPart.toLowerCase())) {
-                                        completions.add(serverPart + ":" + defaultWorld);
-                                    }
-                                }
-                            }
-                        } catch (Exception e) {
-                            plugin.debug("Failed to fetch worlds for tab completion: " + e.getMessage());
-                            for (String defaultWorld : new String[]{"world", "world_nether", "world_the_end"}) {
-                                if (defaultWorld.toLowerCase().startsWith(worldPart.toLowerCase())) {
-                                    completions.add(serverPart + ":" + defaultWorld);
-                                }
-                            }
+                    for (String defaultWorld : new String[] { "world", "world_nether", "world_the_end" }) {
+                        if (defaultWorld.toLowerCase().startsWith(worldPart.toLowerCase())) {
+                            completions.add(serverPart + ":" + defaultWorld);
                         }
                     }
                     Collections.sort(completions);
                     return completions;
                 }
             }
-            
+
             if (!serverAlreadyPresent) {
                 options.addAll(plugin.getConfigManager().getProxyServers());
                 for (String server : plugin.getConfigManager().getProxyServers()) {

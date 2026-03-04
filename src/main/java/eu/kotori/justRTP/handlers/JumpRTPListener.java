@@ -42,13 +42,13 @@ public class JumpRTPListener implements Listener {
 
         double currentY = player.getLocation().getY();
         Double previousY = lastY.get(playerId);
-        
+
         if (previousY != null) {
-            if (currentY > previousY && player.getVelocity().getY() > 0 && player.isOnGround() == false) {
+            if (currentY > previousY && player.getVelocity().getY() > 0 && !player.isOnGround()) {
                 handleJump(player);
             }
         }
-        
+
         lastY.put(playerId, currentY);
     }
 
@@ -60,8 +60,8 @@ public class JumpRTPListener implements Listener {
             if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) {
                 long remainingSeconds = (cooldownEnd - System.currentTimeMillis()) / 1000;
                 plugin.getLocaleManager().sendMessage(player, "jump_rtp.cooldown",
-                        net.kyori.adventure.text.minimessage.tag.resolver.Placeholder.unparsed("time", 
-                        eu.kotori.justRTP.utils.TimeUtils.formatDuration(remainingSeconds)));
+                        net.kyori.adventure.text.minimessage.tag.resolver.Placeholder.unparsed("time",
+                                eu.kotori.justRTP.utils.TimeUtils.formatDuration(remainingSeconds)));
                 return;
             }
         }
@@ -97,18 +97,17 @@ public class JumpRTPListener implements Listener {
                     player,
                     player.getWorld(),
                     Optional.empty(),
-                    Optional.empty()
-            );
+                    Optional.empty());
         }
     }
 
     public void cleanupCooldowns() {
         long currentTime = System.currentTimeMillis();
         jumpRtpCooldown.entrySet().removeIf(entry -> entry.getValue() < currentTime);
-        
+
         lastJumpTime.entrySet().removeIf(entry -> (currentTime - entry.getValue()) > 10000);
         jumpCount.keySet().removeIf(playerId -> !lastJumpTime.containsKey(playerId));
-        
+
         lastY.keySet().removeIf(playerId -> plugin.getServer().getPlayer(playerId) == null);
     }
 }
