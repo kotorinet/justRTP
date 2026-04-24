@@ -75,11 +75,51 @@ public class RTPTabCompleter implements TabCompleter {
                 options.add(nearClaimAlias);
             }
 
+            if (sender.hasPermission("justrtp.command.rtp.matchmaking")
+                    && plugin.getConfig().getBoolean("matchmaking.enabled", true)) {
+                options.add("queue");
+                options.add("matchmaking");
+            }
+
+            if (sender.hasPermission("justrtp.command.rtp.sendlocation")
+                    || sender.hasPermission("justrtp.admin")) {
+                options.add("sendlocation");
+            }
+
             boolean creditsPermissionRequired = plugin.getConfig()
                     .getBoolean("settings.credits_command_requires_permission", true);
             if (!creditsPermissionRequired || sender.hasPermission("justrtp.command.credits")) {
                 options.add("credits");
             }
+        }
+
+        if (args.length == 2
+                && (args[0].equalsIgnoreCase("queue") || args[0].equalsIgnoreCase("matchmaking"))
+                && sender.hasPermission("justrtp.command.rtp.matchmaking")) {
+            options.add("join");
+            options.add("leave");
+            options.add("status");
+        }
+
+        if (args.length == 3
+                && (args[0].equalsIgnoreCase("queue") || args[0].equalsIgnoreCase("matchmaking"))
+                && args[1].equalsIgnoreCase("join")
+                && sender.hasPermission("justrtp.command.rtp.matchmaking")) {
+            Bukkit.getWorlds().stream()
+                    .filter(plugin.getRtpService()::isRtpEnabled)
+                    .map(World::getName)
+                    .forEach(options::add);
+            plugin.getConfigManager().getWorldAliases().forEach((aliasKey, worldName) -> options.add(aliasKey));
+            StringUtil.copyPartialMatches(currentArg, options, completions);
+            Collections.sort(completions);
+            return completions;
+        }
+
+        if (args.length >= 2
+                && (args[0].equalsIgnoreCase("queue") || args[0].equalsIgnoreCase("matchmaking"))) {
+            StringUtil.copyPartialMatches(currentArg, options, completions);
+            Collections.sort(completions);
+            return completions;
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("nearplayer")) {

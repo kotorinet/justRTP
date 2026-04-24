@@ -120,6 +120,15 @@ public class Metrics {
         return enabled;
     }
 
+    private static boolean isFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException ignored) {
+            return false;
+        }
+    }
+
     public void addCustomChart(CustomChart chart) {
         if (chart == null) {
             throw new IllegalArgumentException("Chart cannot be null!");
@@ -133,7 +142,11 @@ public class Metrics {
                 scheduler.shutdown();
                 return;
             }
-            Bukkit.getScheduler().runTask(plugin, this::submitData);
+            if (isFolia()) {
+                Bukkit.getGlobalRegionScheduler().execute(plugin, this::submitData);
+            } else {
+                Bukkit.getScheduler().runTask(plugin, this::submitData);
+            }
         };
 
         long initialDelay = (long) (1000 * 60 * (3 + Math.random() * 3));

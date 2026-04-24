@@ -7,17 +7,17 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class JumpRTPListener implements Listener {
     private final JustRTP plugin;
-    private final Map<UUID, Long> lastJumpTime = new HashMap<>();
-    private final Map<UUID, Integer> jumpCount = new HashMap<>();
-    private final Map<UUID, Long> jumpRtpCooldown = new HashMap<>();
-    private final Map<UUID, Double> lastY = new HashMap<>();
+    private final Map<UUID, Long> lastJumpTime = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> jumpCount = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> jumpRtpCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, Double> lastY = new ConcurrentHashMap<>();
 
     public JumpRTPListener(JustRTP plugin) {
         this.plugin = plugin;
@@ -70,16 +70,13 @@ public class JumpRTPListener implements Listener {
         long timeWindow = plugin.getConfigManager().getJumpTimeWindow();
         int jumpsRequired = plugin.getConfigManager().getJumpsRequired();
 
-        Long lastJump = lastJumpTime.get(playerId);
-        int currentJumpCount = jumpCount.getOrDefault(playerId, 0);
-
-        if (lastJump != null && (currentTime - lastJump) <= timeWindow) {
-            currentJumpCount++;
-            jumpCount.put(playerId, currentJumpCount);
-        } else {
-            currentJumpCount = 1;
-            jumpCount.put(playerId, currentJumpCount);
-        }
+        int currentJumpCount = jumpCount.compute(playerId, (id, existing) -> {
+            Long lastJump = lastJumpTime.get(id);
+            if (existing != null && lastJump != null && (currentTime - lastJump) <= timeWindow) {
+                return existing + 1;
+            }
+            return 1;
+        });
 
         lastJumpTime.put(playerId, currentTime);
 

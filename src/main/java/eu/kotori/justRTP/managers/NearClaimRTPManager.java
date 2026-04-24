@@ -2,14 +2,18 @@ package eu.kotori.justRTP.managers;
 
 import eu.kotori.justRTP.JustRTP;
 import eu.kotori.justRTP.utils.FormatUtils;
+import io.papermc.lib.PaperLib;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
@@ -101,53 +105,87 @@ public class NearClaimRTPManager {
         boolean excludeSelf = this.plugin.getConfig().getBoolean("near_claim_rtp.exclude_own_claims", true);
         this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.searching", new TagResolver[0]);
         this.plugin.getFoliaScheduler().runAsync(() -> {
-            List<ClaimInfo> claims = this.claimProvider.getAllClaims(targetWorld);
-            if (claims.isEmpty()) {
+            List<ClaimInfo> rawClaims = this.claimProvider.getAllClaims(targetWorld);
+            if (rawClaims.isEmpty()) {
                 this.plugin.getFoliaScheduler().runAtEntity((Entity)player, () -> this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.no_claims", new TagResolver[0]));
                 return;
             }
-            if (excludeSelf && (claims = claims.stream().filter(claim -> !claim.getOwnerUUID().equals(player.getUniqueId())).collect(Collectors.toList())).isEmpty()) {
+            List<ClaimInfo> claims = excludeSelf
+                    ? rawClaims.stream().filter(claim -> !claim.getOwnerUUID().equals(player.getUniqueId())).collect(Collectors.toList())
+                    : rawClaims;
+            if (claims.isEmpty()) {
                 this.plugin.getFoliaScheduler().runAtEntity((Entity)player, () -> this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.no_other_claims", new TagResolver[0]));
                 return;
             }
-            ClaimInfo targetClaim = claims.get(new Random().nextInt(claims.size()));
+            ClaimInfo targetClaim = claims.get(ThreadLocalRandom.current().nextInt(claims.size()));
             Location claimCenter = targetClaim.getCenter();
             this.plugin.getRTPLogger().debug("NEARCLAIM", "Selected claim owned by " + targetClaim.getOwnerName() + " at " + String.valueOf(claimCenter));
-            Location safeLocation = null;
-            for (int attempt = 0; attempt < maxAttempts; ++attempt) {
-                Location candidate = this.generateLocationNearClaim(claimCenter, minDistance, maxDistance);
-                if (!this.plugin.getRtpService().isSafeForSpread(candidate)) continue;
-                safeLocation = candidate;
-                break;
-            }
-            if (safeLocation == null) {
-                this.plugin.getFoliaScheduler().runAtEntity((Entity)player, () -> this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.no_safe_location", new TagResolver[0]));
-                return;
-            }
-            Location finalLocation = safeLocation;
-            String ownerName = targetClaim.getOwnerName();
-            this.plugin.getFoliaScheduler().runAtEntity((Entity)player, () -> {
-                double cost;
-                int cooldownSeconds = this.plugin.getConfig().getInt("near_claim_rtp.cooldown", 60);
-                if (cooldownSeconds > 0) {
-                    this.cooldowns.put(player.getUniqueId(), now + (long)cooldownSeconds * 1000L);
+
+            tryFindSafeNearClaim(claimCenter, minDistance, maxDistance, maxAttempts).thenAccept(optSafe -> {
+                if (optSafe.isEmpty()) {
+                    this.plugin.getFoliaScheduler().runAtEntity((Entity)player, () -> this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.no_safe_location", new TagResolver[0]));
+                    return;
                 }
-                if ((cost = this.plugin.getConfig().getDouble("near_claim_rtp.cost", 0.0)) > 0.0 && this.plugin.getVaultHook() != null && this.plugin.getVaultHook().hasEconomy()) {
-                    if (this.plugin.getVaultHook().getBalance(player) < cost) {
-                        this.plugin.getLocaleManager().sendMessage((CommandSender)player, "economy.insufficient_funds", Map.of("cost", FormatUtils.formatCost(cost)));
-                        return;
+                Location finalLocation = optSafe.get();
+                String ownerName = targetClaim.getOwnerName();
+                this.plugin.getFoliaScheduler().runAtEntity((Entity)player, () -> {
+                    double cost;
+                    int cooldownSeconds = this.plugin.getConfig().getInt("near_claim_rtp.cooldown", 60);
+                    if (cooldownSeconds > 0) {
+                        this.cooldowns.put(player.getUniqueId(), now + (long)cooldownSeconds * 1000L);
                     }
-                    this.plugin.getVaultHook().withdrawPlayer(player, cost);
-                }
-                player.teleportAsync(finalLocation).thenAccept(success -> {
-                    if (success.booleanValue()) {
-                        this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.success", Map.of("owner", ownerName, "x", String.valueOf(finalLocation.getBlockX()), "y", String.valueOf(finalLocation.getBlockY()), "z", String.valueOf(finalLocation.getBlockZ())));
-                        this.plugin.getRTPLogger().debug("NEARCLAIM", player.getName() + " teleported near claim of " + ownerName);
-                    } else {
-                        this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.teleport_failed", new TagResolver[0]);
+                    if ((cost = this.plugin.getConfig().getDouble("near_claim_rtp.cost", 0.0)) > 0.0 && this.plugin.getVaultHook() != null && this.plugin.getVaultHook().hasEconomy()) {
+                        if (this.plugin.getVaultHook().getBalance(player) < cost) {
+                            this.plugin.getLocaleManager().sendMessage((CommandSender)player, "economy.insufficient_funds", Map.of("cost", FormatUtils.formatCost(cost)));
+                            return;
+                        }
+                        this.plugin.getVaultHook().withdrawPlayer(player, cost);
                     }
+                    player.teleportAsync(finalLocation).thenAccept(success -> {
+                        if (success.booleanValue()) {
+                            this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.success", Map.of("owner", ownerName, "x", String.valueOf(finalLocation.getBlockX()), "y", String.valueOf(finalLocation.getBlockY()), "z", String.valueOf(finalLocation.getBlockZ())));
+                            this.plugin.getRTPLogger().debug("NEARCLAIM", player.getName() + " teleported near claim of " + ownerName);
+                        } else {
+                            this.plugin.getLocaleManager().sendMessage((CommandSender)player, "near_claim_rtp.teleport_failed", new TagResolver[0]);
+                        }
+                    });
                 });
             });
+        });
+    }
+
+    private CompletableFuture<Optional<Location>> tryFindSafeNearClaim(Location claimCenter, int minDistance, int maxDistance, int attemptsLeft) {
+        if (attemptsLeft <= 0) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        Location candidate = this.generateLocationNearClaim(claimCenter, minDistance, maxDistance);
+        World world = candidate.getWorld();
+        if (world == null) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        int chunkX = candidate.getBlockX() >> 4;
+        int chunkZ = candidate.getBlockZ() >> 4;
+        CompletableFuture<Optional<Location>> stepFuture = new CompletableFuture<>();
+        PaperLib.getChunkAtAsync(world, chunkX, chunkZ, true).thenAccept(chunk -> {
+            this.plugin.getFoliaScheduler().runAtLocation(candidate, () -> {
+                try {
+                    candidate.setY((double)(world.getHighestBlockYAt(candidate) + 1));
+                    if (this.plugin.getRtpService().isSafeForSpread(candidate)) {
+                        stepFuture.complete(Optional.of(candidate));
+                    } else {
+                        stepFuture.complete(Optional.empty());
+                    }
+                } catch (Throwable t) {
+                    stepFuture.complete(Optional.empty());
+                }
+            });
+        }).exceptionally(ex -> {
+            stepFuture.complete(Optional.empty());
+            return null;
+        });
+        return stepFuture.thenCompose(result -> {
+            if (result.isPresent()) return CompletableFuture.completedFuture(result);
+            return tryFindSafeNearClaim(claimCenter, minDistance, maxDistance, attemptsLeft - 1);
         });
     }
 
@@ -161,14 +199,13 @@ public class NearClaimRTPManager {
     }
 
     private Location generateLocationNearClaim(Location claimCenter, int minDistance, int maxDistance) {
-        Random random = new Random();
+        ThreadLocalRandom random = ThreadLocalRandom.current();
         double angle = random.nextDouble() * 2.0 * Math.PI;
-        int distance = minDistance + random.nextInt(maxDistance - minDistance + 1);
+        int distance = minDistance + random.nextInt(Math.max(1, maxDistance - minDistance + 1));
         double offsetX = Math.cos(angle) * (double)distance;
         double offsetZ = Math.sin(angle) * (double)distance;
         Location location = claimCenter.clone();
         location.add(offsetX, 0.0, offsetZ);
-        location.setY((double)(location.getWorld().getHighestBlockYAt(location) + 1));
         return location;
     }
 

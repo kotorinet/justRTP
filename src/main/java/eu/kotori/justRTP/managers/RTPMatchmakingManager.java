@@ -180,6 +180,7 @@ public class RTPMatchmakingManager {
                         Placeholder.unparsed("count", String.valueOf(match.size())));
             }
 
+            int safetyRadius = Math.max(1, plugin.getConfig().getInt("matchmaking.safety_search_radius", 5));
             for (int i = 0; i < match.size(); i++) {
                 MatchmakingRequest req = match.get(i);
                 Player player = req.player();
@@ -196,8 +197,8 @@ public class RTPMatchmakingManager {
                 Location playerLoc = location.clone().add(offsetX, 0, offsetZ);
 
                 plugin.getRtpService().findSafeLocation(player, world, 10,
-                        Optional.of((int) playerLoc.getX() - 5),
-                        Optional.of((int) playerLoc.getX() + 5),
+                        Optional.of(0),
+                        Optional.of(safetyRadius),
                         (int) playerLoc.getX(),
                         (int) playerLoc.getZ()
                 ).thenAccept(safeLocOpt -> {
