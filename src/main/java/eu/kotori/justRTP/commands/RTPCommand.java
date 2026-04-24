@@ -62,7 +62,7 @@ public class RTPCommand implements CommandExecutor {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label,
             @NotNull String[] args) {
         if (!plugin.getCommandManager().isAliasEnabled(label)) {
-            return false;
+            return true;
         }
 
         if (sender instanceof Player player) {
@@ -99,15 +99,26 @@ public class RTPCommand implements CommandExecutor {
                 case "nearplayer":
                     handleNearPlayer(sender, args);
                     return true;
-                case "nearclaim":
-                    handleNearClaim(sender);
-                    return true;
                 case "gui":
                     handleGui(sender);
                     return true;
                 case "spectator":
                     handleSpectator(sender);
                     return true;
+                case "queue":
+                case "matchmaking":
+                    handleMatchmaking(sender, args);
+                    return true;
+                case "sendlocation":
+                    handleSendLocation(sender, args);
+                    return true;
+                default:
+                    String nearClaimAlias = plugin.getConfig().getString("near_claim_rtp.command_alias", "nearclaim");
+                    if (args[0].equalsIgnoreCase(nearClaimAlias)) {
+                        handleNearClaim(sender);
+                        return true;
+                    }
+                    break;
             }
         }
 
@@ -131,6 +142,16 @@ public class RTPCommand implements CommandExecutor {
             if (isBasicRtpRequest && !sender.hasPermission("justrtp.command.rtp")) {
                 plugin.getLocaleManager().sendMessage(sender, "command.no_permission");
                 return true;
+            }
+
+            if (args.length == 0 && sender instanceof Player) {
+                boolean guiEnabled = plugin.getConfig().getBoolean("rtp_gui.enabled", true);
+                boolean autoOpenGui = plugin.getConfig().getBoolean("rtp_gui.auto_open_gui", false);
+
+                if (guiEnabled && autoOpenGui && sender.hasPermission("justrtp.command.rtp.gui")) {
+                    handleGui(sender);
+                    return true;
+                }
             }
         }
 
@@ -534,7 +555,7 @@ public class RTPCommand implements CommandExecutor {
         if (plugin.getConfig().getBoolean("economy.enabled") && finalCost > 0 && plugin.getVaultHook().hasEconomy()) {
             if (plugin.getVaultHook().getBalance(targetPlayer) < finalCost) {
                 plugin.getLocaleManager().sendMessage(targetPlayer, "economy.not_enough_money",
-                        Placeholder.unparsed("cost", String.valueOf(finalCost)));
+                        Placeholder.unparsed("cost", eu.kotori.justRTP.utils.FormatUtils.formatCost(finalCost)));
                 return CompletableFuture.completedFuture(false);
             }
             if (requireConfirmation && sender instanceof Player && sender.equals(targetPlayer)
@@ -551,7 +572,7 @@ public class RTPCommand implements CommandExecutor {
                             .thenAccept(confirmationFuture::complete);
                 });
                 plugin.getLocaleManager().sendMessage(targetPlayer, "economy.needs_confirmation",
-                        Placeholder.unparsed("cost", String.valueOf(finalCost)));
+                        Placeholder.unparsed("cost", eu.kotori.justRTP.utils.FormatUtils.formatCost(finalCost)));
                 return confirmationFuture;
             }
         }
@@ -559,8 +580,13 @@ public class RTPCommand implements CommandExecutor {
         if (sender instanceof Player && sender.equals(targetPlayer)) {
             plugin.getLocaleManager().sendMessage(sender, "teleport.start_self");
         } else if (parsed.targetPlayer() != null) {
+
             plugin.getLocaleManager().sendMessage(sender, "teleport.start_other",
                     Placeholder.unparsed("player", parsed.targetPlayer().getName()));
+
+            if (sender instanceof ConsoleCommandSender) {
+                plugin.getLocaleManager().sendMessage(parsed.targetPlayer(), "teleport.console_initiated");
+            }
         }
 
         return executeTeleportationLogic(sender, parsed, crossServerNoDelay, finalCost, false);
@@ -596,13 +622,13 @@ public class RTPCommand implements CommandExecutor {
             if (plugin.getConfig().getBoolean("economy.enabled") && cost > 0 && plugin.getVaultHook().hasEconomy()) {
                 if (!plugin.getVaultHook().withdrawPlayer(targetPlayer, cost)) {
                     plugin.getLocaleManager().sendMessage(targetPlayer, "economy.not_enough_money",
-                            Placeholder.unparsed("cost", String.valueOf(cost)));
+                            Placeholder.unparsed("cost", eu.kotori.justRTP.utils.FormatUtils.formatCost(cost)));
                     future.complete(false);
                     return;
                 }
                 if (wasConfirmed || !plugin.getConfig().getBoolean("economy.require_confirmation", true)) {
                     plugin.getLocaleManager().sendMessage(targetPlayer, "economy.payment_success",
-                            Placeholder.unparsed("cost", String.valueOf(cost)));
+                            Placeholder.unparsed("cost", eu.kotori.justRTP.utils.FormatUtils.formatCost(cost)));
                 }
             }
 
@@ -1018,12 +1044,108 @@ public class RTPCommand implements CommandExecutor {
             return;
         }
 
-        if (!sender.hasPermission("justrtp.command.rtp.nearclaim")) {
+        if (!player.hasPermission("justrtp.command.rtp.nearclaim")) {
             plugin.getLocaleManager().sendMessage(sender, "command.no_permission");
             return;
         }
 
         plugin.getNearClaimRTPManager().performNearClaimRTP(player);
+    }
+
+    private void handleMatchmaking(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            plugin.getLocaleManager().sendMessage(sender, "command.player_only");
+            return;
+        }
+
+        if (!player.hasPermission("justrtp.command.rtp.matchmaking")) {
+            plugin.getLocaleManager().sendMessage(sender, "command.no_permission");
+            return;
+        }
+
+        if (args.length < 2) {
+            plugin.getLocaleManager().sendMessage(sender, "matchmaking.usage");
+            return;
+        }
+
+        String action = args[1].toLowerCase();
+        switch (action) {
+            case "join" -> {
+                World world = args.length > 2 ? Bukkit.getWorld(plugin.getConfigManager().resolveWorldAlias(args[2])) : player.getWorld();
+                if (world == null) {
+                    plugin.getLocaleManager().sendMessage(sender, "command.world_not_found");
+                    return;
+                }
+                plugin.getMatchmakingManager().joinQueue(player, world, Optional.empty(), Optional.empty());
+            }
+            case "leave" -> plugin.getMatchmakingManager().leaveQueue(player);
+            case "status" -> {
+                World world = player.getWorld();
+                int queueSize = plugin.getMatchmakingManager().getQueueSize(world);
+                boolean inQueue = plugin.getMatchmakingManager().isInQueue(player);
+                plugin.getLocaleManager().sendMessage(sender, "matchmaking.status",
+                        Placeholder.unparsed("world", world.getName()),
+                        Placeholder.unparsed("queue_size", String.valueOf(queueSize)),
+                        Placeholder.unparsed("in_queue", inQueue ? "Yes" : "No"));
+            }
+            default -> plugin.getLocaleManager().sendMessage(sender, "matchmaking.usage");
+        }
+    }
+
+    private void handleSendLocation(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("justrtp.admin")) {
+            plugin.getLocaleManager().sendMessage(sender, "command.no_permission");
+            return;
+        }
+
+        if (args.length < 6) {
+            plugin.getLocaleManager().sendMessage(sender, "sendlocation.usage");
+            return;
+        }
+
+        try {
+            double x = Double.parseDouble(args[1]);
+            double y = Double.parseDouble(args[2]);
+            double z = Double.parseDouble(args[3]);
+            String worldName = args[4];
+            String playerName = args[5];
+
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                plugin.getLocaleManager().sendMessage(sender, "command.world_not_found");
+                return;
+            }
+
+            Player target = Bukkit.getPlayer(playerName);
+            if (target == null || !target.isOnline()) {
+                plugin.getLocaleManager().sendMessage(sender, "command.player_not_found",
+                        Placeholder.unparsed("player", playerName));
+                return;
+            }
+
+            Location location = new Location(world, x, y, z);
+
+            plugin.getRtpService().teleportPlayer(target, location, null, null, 0.0, false, null)
+                    .thenAccept(success -> {
+                        if (success) {
+                            plugin.getLocaleManager().sendMessage(sender, "sendlocation.success",
+                                    Placeholder.unparsed("player", target.getName()),
+                                    Placeholder.unparsed("x", String.valueOf((int) x)),
+                                    Placeholder.unparsed("y", String.valueOf((int) y)),
+                                    Placeholder.unparsed("z", String.valueOf((int) z)),
+                                    Placeholder.unparsed("world", worldName));
+                            plugin.getLocaleManager().sendMessage(target, "sendlocation.teleported",
+                                    Placeholder.unparsed("x", String.valueOf((int) x)),
+                                    Placeholder.unparsed("y", String.valueOf((int) y)),
+                                    Placeholder.unparsed("z", String.valueOf((int) z)),
+                                    Placeholder.unparsed("world", worldName));
+                        } else {
+                            plugin.getLocaleManager().sendMessage(sender, "sendlocation.failed");
+                        }
+                    });
+        } catch (NumberFormatException e) {
+            plugin.getLocaleManager().sendMessage(sender, "sendlocation.invalid_coordinates");
+        }
     }
 
     private void handleLocation(CommandSender sender, String[] args) {

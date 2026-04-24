@@ -71,7 +71,8 @@ public class RTPTabCompleter implements TabCompleter {
 
             if (sender.hasPermission("justrtp.command.rtp.nearclaim")
                     && plugin.getConfig().getBoolean("near_claim_rtp.enabled", false)) {
-                options.add("nearclaim");
+                String nearClaimAlias = plugin.getConfig().getString("near_claim_rtp.command_alias", "nearclaim");
+                options.add(nearClaimAlias);
             }
 
             boolean creditsPermissionRequired = plugin.getConfig()

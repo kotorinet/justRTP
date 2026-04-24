@@ -19,39 +19,39 @@ public class LocaleManager {
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private File messagesFile;
     private final Set<String> warnedMissingKeys = Collections.synchronizedSet(new HashSet<>());
-    
+
     public LocaleManager(JustRTP plugin) {
         this.plugin = plugin;
         loadMessages();
     }
-    
+
     public void loadMessages() {
         messagesFile = new File(plugin.getDataFolder(), "messages.yml");
         if (!messagesFile.exists()) {
             plugin.saveResource("messages.yml", false);
         }
         messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
-        
+
         warnedMissingKeys.clear();
     }
     public void sendMessage(CommandSender sender, String path, TagResolver... resolvers) {
         String message = messagesConfig.getString(path);
-        
+
         if (message != null && message.isEmpty()) {
             return;
         }
-        
+
         if (message == null) {
             if (!warnedMissingKeys.contains(path)) {
                 warnedMissingKeys.add(path);
                 plugin.getLogger().warning("Missing message key: '" + path + "' - Please check messages.yml");
             }
-            
+
             message = "<red>Message not found: " + path + "</red>";
         }
-        
+
         if (message.isBlank()) return;
-        
+
         String prefix = getRawMessage("prefix", "");
         message = message.replace("%prefix%", prefix);
         Component parsedComponent = miniMessage.deserialize(message, resolvers);

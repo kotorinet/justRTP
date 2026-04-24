@@ -588,7 +588,6 @@ public class HologramManager {
     public void cleanupAllHolograms() {
         plugin.getRTPLogger().debug("HOLOGRAM", "Cleaning up all JustRTP holograms from all worlds...");
 
-
         if (usePacketEvents && packetHologramManager != null) {
             packetHologramManager.cleanupAllHolograms();
         }

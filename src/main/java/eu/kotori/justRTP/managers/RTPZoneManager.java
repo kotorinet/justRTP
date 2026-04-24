@@ -624,7 +624,6 @@ public class RTPZoneManager {
                     groundType == org.bukkit.Material.END_STONE_BRICKS) &&
                     feet.isPassable() && head.isPassable()) {
 
-
                 int voidCount = 0;
                 for (int xOff = -1; xOff <= 1; xOff++) {
                     for (int zOff = -1; zOff <= 1; zOff++) {

@@ -128,7 +128,6 @@ public class SafetyValidator {
         if (!hasGroundBelow)
             return false;
 
-
         return true;
     }
 

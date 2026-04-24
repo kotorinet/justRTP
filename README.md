@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-<strong>High-performance random teleport plugin for Paper, Folia, and proxy networks with advanced zone system</strong>
+<strong>Random teleport plugin for Paper, Folia, and proxy networks with an arena-style zone system</strong>
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/Version-3.3.1-brightgreen?style=for-the-badge" alt="Version" />
+<img src="https://img.shields.io/badge/Version-3.5.1-brightgreen?style=for-the-badge" alt="Version" />
 <img src="https://img.shields.io/badge/API-1.21+-blue?style=for-the-badge" alt="API Version" />
 <img src="https://img.shields.io/badge/Java-21+-orange?style=for-the-badge" alt="Java" />
 <img src="https://img.shields.io/badge/Folia-Supported-purple?style=for-the-badge" alt="Folia" />
@@ -25,26 +25,25 @@
 
 ## Overview
 
-JustRTP is a feature-rich random teleport plugin designed for modern Minecraft servers. Built with performance and reliability in mind, it supports single servers, Velocity/BungeeCord networks, and Folia's multi-threaded regions.
+JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord networks. Supports Minecraft 1.21 through 26.1.
 
-### Key Features
+### Features
 
-- **Human-Readable Time Formatting** - Display cooldowns as "5m 38s" instead of "338 seconds"
-- **OP/Permission Cooldown Bypass** - OP players and bypass permission holders skip cooldowns
-- **Empty Message Suppression** - Hide any message by setting it to "" in messages.yml
-- **Radius-Based Pricing** - Charge different prices based on teleport radius chosen
-- **Per-World Cooldowns** - Independent cooldowns for each world - teleport freely between dimensions!
-- **High Performance** - Asynchronous location cache and optimized search algorithms
-- **Safety First** - Intelligent terrain analysis with dimension-specific scanning
-- **Cross-Server Support** - Network-wide teleportation via MySQL backend
-- **RTP Zones** - Arena-style zones with countdown holograms and group teleports
-- **3-Tier Hologram System** - FancyHolograms, PacketEvents, or Display Entities with auto-selection
-- **Persistent Holograms** - FancyHolograms integration with player-editable, restart-proof holograms
-- **Rich Visuals** - MiniMessage formatting with titles, particles, and effects
-- **Economy Integration** - Vault support with cost per teleport and radius-based pricing
-- **Flexible Configuration** - Per-world settings, permission groups, and custom radii
-- **Hook Support** - WorldGuard regions, PlaceholderAPI, FancyHolograms, and PacketEvents
-- **Folia Ready** - Full support for multi-threaded region servers  
+- Per-world cooldowns, radius, cost, and biome rules
+- Async location cache with configurable chunk pre-generation
+- Cross-server teleport via MySQL (Velocity/BungeeCord)
+- VOID world type for skyblock/oneblock/void arenas
+- RTP zones with countdown holograms and group teleports
+- Hologram backends: FancyHolograms, PacketEvents, or Display Entities (auto-selected)
+- RTP GUI with cross-server support, auto-open, and custom items
+- Matchmaking queue for PvP duels (1v1, 2v2, team RTP)
+- Jump RTP, first-join RTP, respawn RTP, spawn-world redirect
+- Near-player and near-claim RTP (SimpleClaim, GriefPrevention, Lands, WorldGuard)
+- Custom named locations with radius dispersal
+- Vault economy with radius-based pricing and automatic refund on failure
+- PlaceholderAPI integration
+- MiniMessage formatting, per-world titles, particles, sounds
+- FastStats + bStats metrics
 
 ---
 
@@ -61,16 +60,17 @@ JustRTP is a feature-rich random teleport plugin designed for modern Minecraft s
 ### Dependencies
 
 **Required:**
-- Java 21 or higher
-- Paper 1.21+ (or Folia, Spigot 1.21+ compatible)
+- Java 21+
+- Paper 1.21+ or Folia 1.21+ (tested up to 26.1)
 
 **Optional:**
-- **Vault** - Economy and permission group support
-- **PlaceholderAPI** - Placeholder expansion for other plugins
-- **WorldGuard** - Region protection integration
-- **FancyHolograms** - Beautiful, persistent holograms for zones (1.21+ Paper/Folia)
-- **PacketEvents** - High-performance packet-based holograms
-- **MySQL** - Cross-server teleportation
+- Vault — economy and permission groups
+- PlaceholderAPI — placeholder expansion
+- WorldGuard / GriefPrevention / Lands / SimpleClaim — region and claim protection
+- FancyHolograms — persistent, editable zone holograms
+- PacketEvents — packet-based holograms
+- MySQL — cross-server teleportation
+- Redis — shared cache across proxy network
 
 ---
 

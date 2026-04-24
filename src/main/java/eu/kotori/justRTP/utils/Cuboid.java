@@ -23,7 +23,7 @@ public class Cuboid {
     }
 
     public boolean contains(Location loc) {
-        return loc != null && loc.getWorld() != null && 
+        return loc != null && loc.getWorld() != null &&
                 loc.getWorld().getName().equals(this.worldName) &&
                 loc.getBlockX() >= x1 && loc.getBlockX() <= x2 &&
                 loc.getBlockY() >= y1 && loc.getBlockY() <= y2 &&

@@ -89,16 +89,18 @@ public class TeleportQueueManager {
                                 "Teleport request for " + player.getName() + " timed out (>60s in queue)");
                         processingPlayers.remove(playerUUID);
                         plugin.getLocaleManager().sendMessage(player, "teleport.no_location_found");
+                        refundEconomyCost(player, request.cost());
                         request.future().complete(false);
                         continue;
                     }
 
                     CompletableFuture<Optional<org.bukkit.Location>> locationFuture;
+                    int attempts = plugin.getConfig().getInt("settings.max-attempts", 25);
                     if (request.useCustomCenter()) {
-                        locationFuture = plugin.getRtpService().findSafeLocation(player, request.world(), 0,
+                        locationFuture = plugin.getRtpService().findSafeLocation(player, request.world(), attempts,
                                 request.minRadius(), request.maxRadius(), request.centerX(), request.centerZ());
                     } else {
-                        locationFuture = plugin.getRtpService().findSafeLocation(player, request.world(), 0,
+                        locationFuture = plugin.getRtpService().findSafeLocation(player, request.world(), attempts,
                                 request.minRadius(), request.maxRadius());
                     }
 
@@ -107,6 +109,7 @@ public class TeleportQueueManager {
                             plugin.getLogger().severe("Error finding safe location for " + player.getName() + ": "
                                     + throwable.getMessage());
                             plugin.getLocaleManager().sendMessage(player, "teleport.no_location_found");
+                            refundEconomyCost(player, request.cost());
                             processingPlayers.remove(playerUUID);
                             request.future().complete(false);
                         } else if (locationOpt.isPresent()) {
@@ -138,6 +141,7 @@ public class TeleportQueueManager {
                             }
                         } else {
                             plugin.getLocaleManager().sendMessage(player, "teleport.no_location_found");
+                            refundEconomyCost(player, request.cost());
                             processingPlayers.remove(playerUUID);
                             request.future().complete(false);
                         }
@@ -217,11 +221,12 @@ public class TeleportQueueManager {
             }
 
             CompletableFuture<Optional<org.bukkit.Location>> locationFuture;
+            int attempts = plugin.getConfig().getInt("settings.max-attempts", 25);
             if (useCustomCenter) {
-                locationFuture = plugin.getRtpService().findSafeLocation(player, world, 0, minRadius, maxRadius,
+                locationFuture = plugin.getRtpService().findSafeLocation(player, world, attempts, minRadius, maxRadius,
                         centerX, centerZ);
             } else {
-                locationFuture = plugin.getRtpService().findSafeLocation(player, world, 0, minRadius, maxRadius);
+                locationFuture = plugin.getRtpService().findSafeLocation(player, world, attempts, minRadius, maxRadius);
             }
 
             final double finalCost = cost;
@@ -230,6 +235,7 @@ public class TeleportQueueManager {
                     plugin.getLogger().severe("Error finding safe location for " + player.getName() + ": "
                             + throwable.getMessage());
                     plugin.getLocaleManager().sendMessage(player, "teleport.no_location_found");
+                    refundEconomyCost(player, finalCost);
                     processingPlayers.remove(playerUUID);
                     future.complete(false);
                 } else if (locationOpt.isPresent()) {
@@ -258,6 +264,7 @@ public class TeleportQueueManager {
                     }
                 } else {
                     plugin.getLocaleManager().sendMessage(player, "teleport.no_location_found");
+                    refundEconomyCost(player, finalCost);
                     processingPlayers.remove(playerUUID);
                     future.complete(false);
                 }
@@ -312,5 +319,26 @@ public class TeleportQueueManager {
             return true;
         }
         return queue.stream().anyMatch(req -> req.player().getUniqueId().equals(playerUUID));
+    }
+
+    public boolean isInQueue(Player player) {
+        return queue.stream().anyMatch(req -> req.player().getUniqueId().equals(player.getUniqueId()));
+    }
+
+    private void refundEconomyCost(Player player, double cost) {
+        if (cost <= 0) return;
+
+        boolean economyEnabled = plugin.getConfig().getBoolean("economy.enabled", false);
+        boolean refundOnFail = plugin.getConfig().getBoolean("economy.refund_on_fail", true);
+
+        if (economyEnabled && refundOnFail && plugin.getVaultHook().hasEconomy()) {
+            if (plugin.getVaultHook().depositPlayer(player, cost)) {
+                plugin.getLocaleManager().sendMessage(player, "economy.refunded",
+                        net.kyori.adventure.text.minimessage.tag.resolver.Placeholder.unparsed("cost",
+                                eu.kotori.justRTP.utils.FormatUtils.formatCost(cost)));
+                plugin.getRTPLogger().debug("ECONOMY",
+                        "Refunded " + cost + " to " + player.getName() + " (RTP failed)");
+            }
+        }
     }
 }

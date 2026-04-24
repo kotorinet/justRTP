@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 public class RTPService {
     private enum WorldType {
-        NORMAL, NETHER, THE_END
+        NORMAL, NETHER, THE_END, VOID
     }
 
     private enum FailureReason {
@@ -233,7 +233,6 @@ public class RTPService {
         return resultFuture;
     }
 
-
     private void refreshPlayerChunks(Player player, Location location) {
         if (!player.isOnline() || location.getWorld() == null)
             return;
@@ -413,7 +412,7 @@ public class RTPService {
 
         int chunkX = x >> 4;
         int chunkZ = z >> 4;
-        
+
         return PaperLib.getChunkAtAsync(world, chunkX, chunkZ, generateChunks).thenCompose(chunk -> {
             if (chunk == null) {
                 plugin.getRTPLogger().debug("CHUNK",
@@ -432,7 +431,7 @@ public class RTPService {
                 return delayedFindLocationRecursive(player, world, attemptsLeft - 1, minRadius, maxRadius,
                         generateChunks, summary, customCenterX, customCenterZ, useCustomCenter);
             }
-            
+
             if (generateChunks) {
                 List<CompletableFuture<Chunk>> neighborFutures = new ArrayList<>();
                 for (int dx = -1; dx <= 1; dx++) {
@@ -440,28 +439,28 @@ public class RTPService {
                         neighborFutures.add(PaperLib.getChunkAtAsync(world, chunkX + dx, chunkZ + dz, true));
                     }
                 }
-                
+
                 return CompletableFuture.allOf(neighborFutures.toArray(new CompletableFuture[0]))
                     .thenCompose(v -> {
                         CompletableFuture<Void> delayFuture = new CompletableFuture<>();
                         plugin.getFoliaScheduler().runLater(() -> delayFuture.complete(null), 2L);
                         return delayFuture;
                     })
-                    .thenCompose(v -> processChunkForLocation(chunk, x, z, world, player, attemptsLeft, 
+                    .thenCompose(v -> processChunkForLocation(chunk, x, z, world, player, attemptsLeft,
                         minRadius, maxRadius, generateChunks, summary, customCenterX, customCenterZ, useCustomCenter));
             }
-            
-            return processChunkForLocation(chunk, x, z, world, player, attemptsLeft, 
+
+            return processChunkForLocation(chunk, x, z, world, player, attemptsLeft,
                 minRadius, maxRadius, generateChunks, summary, customCenterX, customCenterZ, useCustomCenter);
         });
     }
-    
-    private CompletableFuture<Optional<Location>> processChunkForLocation(Chunk chunk, int x, int z, 
+
+    private CompletableFuture<Optional<Location>> processChunkForLocation(Chunk chunk, int x, int z,
             World world, Player player, int attemptsLeft, Optional<Integer> minRadius, Optional<Integer> maxRadius,
             boolean generateChunks, SearchSummary summary, int customCenterX, int customCenterZ, boolean useCustomCenter) {
-        
+
         CompletableFuture<Optional<Location>> future = new CompletableFuture<>();
-        
+
         Location chunkLocation = new Location(world, x, 64, z);
         plugin.getFoliaScheduler().runAtLocation(chunkLocation, () -> {
             processChunkOnRegionThread(chunk, x, z, world, player, attemptsLeft, minRadius, maxRadius,
@@ -472,11 +471,11 @@ public class RTPService {
                     return null;
                 });
         });
-        
+
         return future;
     }
-    
-    private CompletableFuture<Optional<Location>> processChunkOnRegionThread(Chunk chunk, int x, int z, 
+
+    private CompletableFuture<Optional<Location>> processChunkOnRegionThread(Chunk chunk, int x, int z,
             World world, Player player, int attemptsLeft, Optional<Integer> minRadius, Optional<Integer> maxRadius,
             boolean generateChunks, SearchSummary summary, int customCenterX, int customCenterZ, boolean useCustomCenter) {
 
@@ -507,6 +506,9 @@ public class RTPService {
             case THE_END:
                 safeSpot = findSafeInEnd(chunk, x, z, summary);
                 break;
+            case VOID:
+                safeSpot = findSafeInVoid(chunk, x, z, summary);
+                break;
             default:
                 safeSpot = findSafeInNormal(chunk, x, z, summary);
                 break;
@@ -514,6 +516,12 @@ public class RTPService {
 
         if (safeSpot.isPresent()) {
             Location loc = safeSpot.get();
+
+            if (type == WorldType.VOID) {
+                plugin.getRTPLogger().debug("VOID", "Void world - skipping SafetyValidator for " +
+                        loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ());
+                return CompletableFuture.completedFuture(Optional.of(loc));
+            }
 
             return SafetyValidator.isLocationAbsolutelySafeAsync(loc).thenCompose(safe -> {
                 if (!safe) {
@@ -654,6 +662,50 @@ public class RTPService {
             return Optional.of(spawnLoc);
         }
         return Optional.empty();
+    }
+
+    private Optional<Location> findSafeInVoid(Chunk chunk, int x, int z, SearchSummary summary) {
+        World world = chunk.getWorld();
+        int spawnY = plugin.getConfig().getInt("void_world.spawn_y", 64);
+        int lx = x & 15;
+        int lz = z & 15;
+
+        int minHeight = world.getMinHeight();
+        int maxHeight = world.getMaxHeight();
+        if (spawnY < minHeight + 1 || spawnY >= maxHeight - 2) {
+            spawnY = Math.max(minHeight + 1, Math.min(maxHeight - 3, 64));
+        }
+
+        int groundY = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING);
+        if (groundY > minHeight) {
+            Location groundLoc = new Location(world, x, groundY, z);
+            if (isSafe(groundLoc, summary).isEmpty()) {
+                Location spawnLoc = new Location(world, x + 0.5, groundY + 1, z + 0.5);
+                plugin.getRTPLogger().debug("VOID", "Found solid ground in void world at Y=" + groundY);
+                return Optional.of(spawnLoc);
+            }
+        }
+
+        Block feet = chunk.getBlock(lx, spawnY, lz);
+        Block head = chunk.getBlock(lx, spawnY + 1, lz);
+        if (!feet.isPassable() || !head.isPassable()) {
+            summary.increment(FailureReason.OBSTRUCTED);
+            return Optional.empty();
+        }
+
+        Location voidLoc = new Location(world, x + 0.5, spawnY, z + 0.5);
+        Biome biome = feet.getBiome();
+        boolean biomeAllowed = "BLACKLIST".equals(biomeMode) ? !biomeList.contains(biome) : biomeList.contains(biome);
+        if (!biomeAllowed) {
+            summary.increment(FailureReason.INVALID_BIOME);
+            return Optional.empty();
+        }
+        if (plugin.getConfig().getBoolean("settings.respect_regions") && !hookManager.isLocationSafe(voidLoc)) {
+            summary.increment(FailureReason.REGION_CLAIM);
+            return Optional.empty();
+        }
+        plugin.getRTPLogger().debug("VOID", "Spawning in void world at Y=" + spawnY + " (no solid ground)");
+        return Optional.of(voidLoc);
     }
 
     private Optional<Location> findSafeInNether(Chunk chunk, int x, int z, SearchSummary summary) {

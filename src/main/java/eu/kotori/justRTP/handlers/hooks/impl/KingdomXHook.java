@@ -7,13 +7,12 @@ import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
 
-
 public class KingdomXHook implements RegionHook {
-    
+
     private static Class<?> landClass;
     private static Method getLandMethod;
     private static Method isClaimedMethod;
-    
+
     static {
         try {
             landClass = Class.forName("org.kingdoms.constants.land.Land");
@@ -26,24 +25,24 @@ public class KingdomXHook implements RegionHook {
             }
         }
     }
-    
+
     @Override
     public boolean isLocationSafe(Location location) {
         if (landClass == null || getLandMethod == null || isClaimedMethod == null) {
             return true;
         }
-        
+
         try {
             Object land = getLandMethod.invoke(null, location);
-            
+
             if (land == null) {
                 return true;
             }
-            
+
             Boolean isClaimed = (Boolean) isClaimedMethod.invoke(land);
-            
+
             return isClaimed == null || !isClaimed;
-            
+
         } catch (Exception e) {
             Plugin kingdomsX = Bukkit.getPluginManager().getPlugin("KingdomsX");
             if (kingdomsX != null) {

@@ -56,7 +56,6 @@ public class DelayManager {
             plugin.getEffectsManager().sendDelayActionBar(player, remaining);
             plugin.getEffectsManager().playDelaySound(player, remaining, seconds);
 
-
         }, 20L, 20L);
 
         delayedTasks.put(player.getUniqueId(), task);

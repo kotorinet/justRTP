@@ -2,6 +2,9 @@ package eu.kotori.justRTP;
 
 import eu.kotori.justRTP.addons.AddonManager;
 import eu.kotori.justRTP.bstats.bukkit.Metrics;
+import dev.faststats.bukkit.BukkitMetrics;
+import dev.faststats.core.ErrorTracker;
+import dev.faststats.core.data.Metric;
 import eu.kotori.justRTP.commands.RTPZoneCommand;
 import eu.kotori.justRTP.commands.RTPZoneTabCompleter;
 import eu.kotori.justRTP.handlers.JumpRTPListener;
@@ -23,15 +26,18 @@ import java.util.List;
 
 public final class JustRTP extends JavaPlugin {
 
-    private static final int CONFIG_VERSION = 28;
+    private static final int CONFIG_VERSION = 32;
     private static final int MESSAGES_CONFIG_VERSION = 19;
     private static final int MYSQL_CONFIG_VERSION = 5;
     private static final int ANIMATIONS_CONFIG_VERSION = 2;
     private static final int COMMANDS_CONFIG_VERSION = 4;
-    private static final int ZONES_CONFIG_VERSION = 11;
+    private static final int ZONES_CONFIG_VERSION = 12;
     private static final int HOLOGRAMS_CONFIG_VERSION = 8;
     private static final int REDIS_CONFIG_VERSION = 3;
     private static final int CUSTOM_LOCATIONS_CONFIG_VERSION = 1;
+
+    private static final String FASTSTATS_TOKEN = "9de868732910e150819fdc6c29a39107";
+    public static final ErrorTracker ERROR_TRACKER = ErrorTracker.contextAware();
 
     private static JustRTP instance;
     private RTPLogger rtpLogger;
@@ -60,9 +66,11 @@ public final class JustRTP extends JavaPlugin {
     private RTPGuiManager rtpGuiManager;
     private SpectatorSwitchManager spectatorSwitchManager;
     private NearClaimRTPManager nearClaimRTPManager;
+    private RTPMatchmakingManager matchmakingManager;
     private AddonManager addonManager;
     private JumpRTPListener jumpRTPListener;
     private UpdateChecker updateChecker;
+    private BukkitMetrics fastStatsMetrics;
 
     private long startupTime;
 
@@ -151,6 +159,7 @@ public final class JustRTP extends JavaPlugin {
         rtpGuiManager = new RTPGuiManager(this);
         spectatorSwitchManager = new SpectatorSwitchManager(this);
         nearClaimRTPManager = new NearClaimRTPManager(this);
+        matchmakingManager = new RTPMatchmakingManager(this);
         addonManager = new AddonManager(this);
 
         locationCacheManager = new LocationCacheManager(this);
@@ -228,6 +237,49 @@ public final class JustRTP extends JavaPlugin {
             rtpLogger.debug("METRICS", "bStats disabled in configuration");
         }
 
+        try {
+            fastStatsMetrics = BukkitMetrics.factory()
+                    .token(FASTSTATS_TOKEN)
+
+                    .addMetric(Metric.number("worlds", () -> (long) getServer().getWorlds().size()))
+                    .addMetric(Metric.number("plugins", () -> (long) getServer().getPluginManager().getPlugins().length))
+                    .addMetric(Metric.number("online_players", () -> (long) getServer().getOnlinePlayers().size()))
+                    .addMetric(Metric.number("cached_locations", () -> (long) (locationCacheManager != null ? locationCacheManager.getTotalCachedLocations() : 0)))
+                    .addMetric(Metric.number("rtp_zones", () -> (long) (rtpZoneManager != null ? rtpZoneManager.getAllZones().size() : 0)))
+                    .addMetric(Metric.number("cooldown_seconds", () -> (long) getConfig().getInt("settings.cooldown", 30)))
+                    .addMetric(Metric.number("delay_seconds", () -> (long) getConfig().getInt("settings.delay", 3)))
+                    .addMetric(Metric.number("max_attempts", () -> (long) getConfig().getInt("settings.attempts", 25)))
+
+                    .addMetric(Metric.string("server_software", () -> getServer().getName()))
+                    .addMetric(Metric.string("minecraft_version", () -> getServer().getBukkitVersion().split("-")[0]))
+
+                    .addMetric(Metric.string("folia_support", () -> FoliaScheduler.isFolia() ? "Yes" : "No"))
+                    .addMetric(Metric.string("vault_economy", () -> vaultHook.hasEconomy() ? "Yes" : "No"))
+                    .addMetric(Metric.string("location_cache", () -> getConfig().getBoolean("location_cache.enabled", true) ? "Yes" : "No"))
+                    .addMetric(Metric.string("economy_enabled", () -> getConfig().getBoolean("economy.enabled", false) ? "Yes" : "No"))
+                    .addMetric(Metric.string("gui_enabled", () -> getConfig().getBoolean("rtp_gui.enabled", true) ? "Yes" : "No"))
+                    .addMetric(Metric.string("auto_open_gui", () -> getConfig().getBoolean("rtp_gui.auto_open_gui", false) ? "Yes" : "No"))
+                    .addMetric(Metric.string("first_join_rtp", () -> getConfig().getBoolean("first_join_rtp.enabled", false) ? "Yes" : "No"))
+                    .addMetric(Metric.string("respawn_rtp", () -> getConfig().getBoolean("respawn_rtp.enabled", false) ? "Yes" : "No"))
+                    .addMetric(Metric.string("jump_rtp", () -> getConfig().getBoolean("jump_rtp.enabled", false) ? "Yes" : "No"))
+                    .addMetric(Metric.string("near_claim_rtp", () -> getConfig().getBoolean("near_claim_rtp.enabled", false) ? "Yes" : "No"))
+                    .addMetric(Metric.string("proxy_mode", () -> getConfig().getBoolean("proxy.enabled", false) ? "Yes" : "No"))
+                    .addMetric(Metric.string("redis_enabled", () -> getConfig().getBoolean("redis.enabled", false) ? "Yes" : "No"))
+                    .addMetric(Metric.string("permission_groups", () -> getConfig().getBoolean("permission_groups.enabled", true) ? "Yes" : "No"))
+                    .addMetric(Metric.string("respect_regions", () -> getConfig().getBoolean("settings.respect_regions", true) ? "Yes" : "No"))
+                    .addMetric(Metric.string("debug_mode", () -> getConfig().getBoolean("settings.debug", false) ? "Yes" : "No"))
+
+                    .addMetric(Metric.string("world_mode", () -> getConfig().getString("rtp_settings.worlds.mode", "BLACKLIST")))
+                    .addMetric(Metric.string("biome_mode", () -> getConfig().getString("rtp_settings.biomes.mode", "BLACKLIST")))
+
+                    .errorTracker(ERROR_TRACKER)
+                    .create(this);
+            fastStatsMetrics.ready();
+            rtpLogger.info("METRICS", "FastStats metrics initialized with enhanced charts");
+        } catch (Exception e) {
+            rtpLogger.debug("METRICS", "FastStats initialization skipped: " + e.getMessage());
+        }
+
         updateChecker = new UpdateChecker(this);
         getServer().getPluginManager().registerEvents(updateChecker, this);
         updateChecker.checkForUpdates();
@@ -253,6 +305,11 @@ public final class JustRTP extends JavaPlugin {
         if (effectsManager != null) {
             rtpLogger.debug("SHUTDOWN", "Removing boss bars...");
             effectsManager.removeAllBossBars();
+        }
+
+        if (fastStatsMetrics != null) {
+            rtpLogger.debug("SHUTDOWN", "Shutting down FastStats...");
+            fastStatsMetrics.shutdown();
         }
 
         if (databaseManager != null && databaseManager.isConnected()) {
@@ -488,6 +545,10 @@ public final class JustRTP extends JavaPlugin {
 
     public NearClaimRTPManager getNearClaimRTPManager() {
         return nearClaimRTPManager;
+    }
+
+    public RTPMatchmakingManager getMatchmakingManager() {
+        return matchmakingManager;
     }
 
     private DataManager dataManager;

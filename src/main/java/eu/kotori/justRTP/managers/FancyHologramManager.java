@@ -89,28 +89,6 @@ public class FancyHologramManager {
         try {
             String hologramName = "justrtp_zone_" + zoneId;
 
-            Hologram existingHologram = hologramManager.getHologram(hologramName).orElse(null);
-            if (existingHologram != null) {
-                plugin.getRTPLogger().debug("HOLOGRAM",
-                        "FancyHologram already exists for zone: " + zoneId + ", preserving user modifications");
-                activeHolograms.put(zoneId, existingHologram);
-
-                existingHologram.showHologram(Bukkit.getOnlinePlayers());
-                existingHologram.forceUpdate();
-
-                if (existingHologram.getData() instanceof TextHologramData) {
-                    TextHologramData textData = (TextHologramData) existingHologram.getData();
-                    List<String> existingLines = textData.getText();
-                    if (existingLines != null && !existingLines.isEmpty()) {
-                        hologramTemplates.put(zoneId, new ArrayList<>(existingLines));
-                        plugin.getRTPLogger().debug("HOLOGRAM",
-                                "Cached existing hologram lines (preserving user edits) for zone: " + zoneId + " ("
-                                        + existingLines.size() + " lines)");
-                    }
-                }
-                return;
-            }
-
             List<String> templateLines = loadTemplateLines(zoneId);
             if (templateLines.isEmpty()) {
                 plugin.getRTPLogger().debug("HOLOGRAM", "No hologram lines configured for zone: " + zoneId);
@@ -118,8 +96,26 @@ public class FancyHologramManager {
             }
 
             hologramTemplates.put(zoneId, new ArrayList<>(templateLines));
-
             List<String> processedLines = applyPlaceholders(templateLines, zoneId, "⏳");
+
+            Hologram existingHologram = hologramManager.getHologram(hologramName).orElse(null);
+            if (existingHologram != null) {
+
+                activeHolograms.put(zoneId, existingHologram);
+
+                if (existingHologram.getData() instanceof TextHologramData textData) {
+                    textData.setText(processedLines);
+                    textData.setVisibilityDistance(viewDistance);
+                }
+
+                existingHologram.forceUpdate();
+                existingHologram.showHologram(Bukkit.getOnlinePlayers());
+
+                plugin.getRTPLogger().debug("HOLOGRAM",
+                        "Updated existing FancyHologram for zone: " + zoneId + " with config template ("
+                                + templateLines.size() + " lines)");
+                return;
+            }
 
             TextHologramData data = new TextHologramData(hologramName, location);
             data.setText(processedLines);
@@ -493,15 +489,19 @@ public class FancyHologramManager {
                     String zoneId = hologramName.substring("justrtp_zone_".length());
                     activeHolograms.put(zoneId, hologram);
 
-                    if (hologram.getData() instanceof TextHologramData) {
-                        TextHologramData textData = (TextHologramData) hologram.getData();
-                        List<String> currentLines = textData.getText();
-                        if (!currentLines.isEmpty()) {
-                            hologramTemplates.put(zoneId, new ArrayList<>(currentLines));
-                            plugin.getRTPLogger().debug("HOLOGRAM",
-                                    "Loaded and cached user-edited hologram for zone: " + zoneId + " ("
-                                            + currentLines.size() + " lines)");
+                    List<String> templateLines = loadTemplateLines(zoneId);
+                    if (!templateLines.isEmpty()) {
+                        hologramTemplates.put(zoneId, new ArrayList<>(templateLines));
+                        List<String> processedLines = applyPlaceholders(templateLines, zoneId, "⏳");
+
+                        if (hologram.getData() instanceof TextHologramData textData) {
+                            textData.setText(processedLines);
+                            hologram.forceUpdate();
                         }
+
+                        plugin.getRTPLogger().debug("HOLOGRAM",
+                                "Loaded hologram for zone: " + zoneId + " and applied config template ("
+                                        + templateLines.size() + " lines)");
                     }
 
                     loadedCount++;
@@ -510,7 +510,7 @@ public class FancyHologramManager {
 
             if (loadedCount > 0) {
                 plugin.getLogger().info("Loaded " + loadedCount
-                        + " existing FancyHologram(s) from persistent storage (preserving user edits)");
+                        + " existing FancyHologram(s) and applied config templates");
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to load existing holograms: " + e.getMessage());
@@ -550,6 +550,24 @@ public class FancyHologramManager {
     public void reloadTemplates() {
         plugin.getRTPLogger().debug("HOLOGRAM", "Reloading hologram templates from config...");
         refreshHologramReferences();
+
+        for (Map.Entry<String, Hologram> entry : activeHolograms.entrySet()) {
+            String zoneId = entry.getKey();
+            Hologram hologram = entry.getValue();
+
+            List<String> templateLines = loadTemplateLines(zoneId);
+            if (!templateLines.isEmpty()) {
+                hologramTemplates.put(zoneId, new ArrayList<>(templateLines));
+                List<String> processedLines = applyPlaceholders(templateLines, zoneId, "⏳");
+
+                if (hologram.getData() instanceof TextHologramData textData) {
+                    textData.setText(processedLines);
+                    hologram.forceUpdate();
+                    plugin.getRTPLogger().debug("HOLOGRAM",
+                            "Applied updated config template to hologram for zone: " + zoneId);
+                }
+            }
+        }
     }
 
     private void refreshHologramReferences() {

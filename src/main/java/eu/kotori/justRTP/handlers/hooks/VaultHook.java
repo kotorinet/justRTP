@@ -43,4 +43,10 @@ public class VaultHook {
         EconomyResponse response = economy.withdrawPlayer(player, amount);
         return response.transactionSuccess();
     }
+
+    public boolean depositPlayer(Player player, double amount) {
+        if (economy == null || amount <= 0) return true;
+        EconomyResponse response = economy.depositPlayer(player, amount);
+        return response.transactionSuccess();
+    }
 }

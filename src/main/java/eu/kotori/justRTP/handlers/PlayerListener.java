@@ -4,6 +4,7 @@ import eu.kotori.justRTP.JustRTP;
 import eu.kotori.justRTP.commands.RTPCommand;
 import eu.kotori.justRTP.utils.FoliaScheduler;
 import io.papermc.lib.PaperLib;
+import com.destroystokyo.paper.event.player.PlayerPostRespawnEvent;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Chunk;
@@ -332,6 +333,7 @@ public class PlayerListener implements Listener {
         plugin.getEffectsManager().removeBossBar(player);
         plugin.getZoneSetupManager().cancelSetup(player);
         plugin.getRtpZoneManager().handlePlayerQuit(player);
+        plugin.getMatchmakingManager().handlePlayerQuit(player);
         plugin.getCrossServerManager().cancelQueueTimer(player.getUniqueId());
 
         handlePlayerDisconnect(player);
@@ -349,6 +351,7 @@ public class PlayerListener implements Listener {
         plugin.getEffectsManager().removeBossBar(player);
         plugin.getZoneSetupManager().cancelSetup(player);
         plugin.getRtpZoneManager().handlePlayerQuit(player);
+        plugin.getMatchmakingManager().handlePlayerQuit(player);
         plugin.getCrossServerManager().cancelQueueTimer(player.getUniqueId());
 
         handlePlayerDisconnect(player);
@@ -389,8 +392,8 @@ public class PlayerListener implements Listener {
         });
     }
 
-    @EventHandler
-    public void onPlayerRespawn(PlayerRespawnEvent event) {
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerPostRespawn(PlayerPostRespawnEvent event) {
         if (!plugin.getConfig().getBoolean("respawn_rtp.enabled", false))
             return;
         Player player = event.getPlayer();
@@ -399,12 +402,11 @@ public class PlayerListener implements Listener {
 
         if (enabledWorlds.isEmpty() || enabledWorlds.contains(world.getName())) {
             plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
-                if (player.isOnline()) {
-                    RTPCommand rtpCommand = (RTPCommand) plugin.getCommand("justrtp").getExecutor();
-                    boolean bypassDelay = plugin.getConfig().getBoolean("respawn_rtp.bypass_delay", true);
-                    rtpCommand.processRtpRequest(player, player, new String[0], bypassDelay);
-                }
-            }, 1L);
+                if (!player.isOnline()) return;
+                RTPCommand rtpCommand = (RTPCommand) plugin.getCommand("justrtp").getExecutor();
+                boolean bypassDelay = plugin.getConfig().getBoolean("respawn_rtp.bypass_delay", true);
+                rtpCommand.processRtpRequest(player, player, new String[0], bypassDelay);
+            }, 2L);
         }
     }
 
@@ -426,7 +428,15 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent event) {
-        if (plugin.getZoneSetupManager().isWand(event.getItemDrop().getItemStack())) {
+        if (!plugin.getZoneSetupManager().isInSetupMode(event.getPlayer())) {
+            return;
+        }
+        try {
+            if (plugin.getZoneSetupManager().isWand(event.getItemDrop().getItemStack())) {
+                event.setCancelled(true);
+            }
+        } catch (IllegalStateException ignored) {
+
             event.setCancelled(true);
         }
     }

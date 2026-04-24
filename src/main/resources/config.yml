@@ -1,7 +1,14 @@
 # ----------------------------------------------------------------
-# JustRTP Configuration
+# JustRTP Configuration - Version 3.5.0
 # ----------------------------------------------------------------
-config-version: 29
+# Changelog 3.5.0 (April 16, 2026):
+# - NEW: VOID world type support for skyblock/oneblock/void arenas
+# - NEW: void_world.spawn_y config option for void world spawn height
+# - FIXED: Inventory drag exploit affecting other plugin GUIs
+# - FIXED: Folia threading violation in onPlayerDropItem
+# - FIXED: ClassNotFoundException for Pl3xMap on servers without it
+# ----------------------------------------------------------------
+config-version: 32
 # ----------------------------------------------------------------
 
 settings:
@@ -103,7 +110,7 @@ rtp_settings:
 
 # --- World Type Configuration ---
 # Override automatic world type detection for custom dimensions
-# Valid Types: NORMAL (overworld), NETHER (Y < 127), THE_END (void worlds)
+# Valid Types: NORMAL (overworld), NETHER (Y < 127), THE_END (end islands), VOID (no solid ground required)
 # Auto-detection: Plugin automatically detects based on World.Environment
 # Manual config: Only needed for custom dimension names or override
 #
@@ -121,7 +128,17 @@ world_types:
   # snow: "NORMAL"            # Custom snow biome world
   # mushroom: "NORMAL"        # Custom mushroom biome world
   # custom_nether: "NETHER"   # Custom nether dimension
+  # my_void_world: "VOID"     # Void world (spawns at void_world.spawn_y if no ground found)
   # mining_world: "NORMAL"    # Custom mining/resource world
+
+# --- Void World Settings ---
+# Controls behavior for worlds set to type "VOID" in world_types above.
+# VOID worlds allow RTP even when there is no solid ground (e.g., skyblock, oneblock, void arenas).
+# If a solid block IS found, the player spawns on it normally.
+# If no solid block exists, the player spawns at the configured spawn_y.
+void_world:
+  # Y level to spawn players at when no solid ground is found.
+  spawn_y: 64
 
 # --- Location Caching System ---
 # This system dramatically improves performance by finding safe locations in advance.
@@ -276,6 +293,8 @@ economy:
   cost: 100.0
   # If true, players must type /rtp confirm before a costly teleport will proceed.
   require_confirmation: true
+  # If true, players will be refunded if the RTP fails (no location found, timeout, error)
+  refund_on_fail: true
 
 # --- Performance Settings ---
 # Configure teleport processing to prevent lag on busy servers.
@@ -293,6 +312,33 @@ performance:
   # How many players to teleport at once from the queue each time it is processed.
   # Increasing this can significantly speed up teleports on busy servers.
   queue_batch_size: 5
+
+# --- RTP Matchmaking Queue (PvP Duels) ---
+# Players can queue up and teleport together to the same location
+# Perfect for PvP servers, dueling arenas, and battle royale modes
+matchmaking:
+  # Enable the matchmaking queue feature
+  enabled: true
+  
+  # Number of players required to form a match
+  # 2 = 1v1 duels, 4 = 2v2 teams, etc.
+  team_size: 2
+  
+  # How far apart should matched players spawn from each other?
+  # They will be spread in a circle around the found location
+  spread_distance: 10
+  
+  # How often (in seconds) should the matchmaking system check for matches?
+  tick_interval: 60
+  
+  # How long (in seconds) can a player stay in queue before timing out?
+  queue_timeout: 300
+  
+  # Commands:
+  #   /rtp queue join [world]  - Join matchmaking queue
+  #   /rtp queue leave         - Leave matchmaking queue
+  #   /rtp queue status        - Check queue status
+  # Alias: /rtp matchmaking join/leave/status
 
 # --- Cross-Server RTP (Proxy) ---
 # Requirements: Velocity/BungeeCord/Waterfall + MySQL (mysql.yml) on ALL servers
@@ -726,8 +772,14 @@ permission_groups:
 # Usage: /rtp gui
 # Permission: justrtp.command.rtp.gui
 rtp_gui:
-  # Enable the RTP GUI feature (default: false)
-  enabled: false
+  # Enable the RTP GUI feature (default: true)
+  enabled: true
+  
+  # Auto-open GUI when player types /rtp (without arguments)
+  # If true: /rtp opens the GUI for world selection
+  # If false: /rtp directly teleports player to their current world (default behavior)
+  # Players can still use /rtp gui to manually open the GUI
+  auto_open_gui: false
   
   # GUI title (supports MiniMessage format)
   title: "<gradient:#20B2AA:#7FFFD4>Random Teleport</gradient>"
@@ -916,12 +968,18 @@ spectator_switch:
 
 # --- Near Claim RTP Settings ---
 # Innovative feature: Teleport near other players' claimed territories
-# Supports: SimpleClaim, GriefPrevention, Lands (auto-detected)
-# Usage: /rtp nearclaim
+# Supports: SimpleClaim, GriefPrevention, Lands, WorldGuard (auto-detected)
+# Usage: /rtp nearclaim or /rtp base (configurable)
 # Permission: justrtp.command.rtp.nearclaim
 near_claim_rtp:
   # Enable the Near Claim RTP feature (default: false)
   enabled: false
+  
+  # Command alias for near claim RTP
+  # Set to "base" to use /rtp base instead of /rtp nearclaim
+  # Set to "nearclaim" to use the default /rtp nearclaim
+  # You can use any custom alias you want (e.g., "home", "claim", "territory")
+  command_alias: "nearclaim"
   
   # Target world for near claim teleports
   # Leave empty ("") to use player's current world

@@ -53,9 +53,11 @@ proxy:
 
 teleport:
   delay: "%prefix% <gray>Teleporting in <time>... Don't move!</gray>"
+  delay_actionbar: "<white>⏱ <gold>Teleporting in <yellow><time><gold>. Don't move!"
   cancelled: "%prefix% <red>Teleport cancelled.</red>"
   cooldown: "%prefix% <red>You must wait <time> before teleporting again.</red>"
   queued: "%prefix% <gray>Your teleport request has been queued... Please wait.</gray>"
+  console_initiated: "%prefix% <gradient:#20B2AA:#7FFFD4>Teleporting you to a random location... Don't move!</gradient>"
   start_self: "%prefix% <gray>Searching for a safe location for you...</gray>"
   start_other: "%prefix% <gray>Searching for a safe location for <player>...</gray>"
   success: "%prefix% <green>You have been teleported successfully!</green>"
@@ -74,6 +76,27 @@ economy:
   needs_confirmation: "%prefix% <yellow>This teleport will cost <gold><cost></gold>. Type <green>/rtp confirm</green> or click <green><click:run_command:/rtp confirm><b>[HERE]</b></click></green> to continue."
   confirmed: "%prefix% <green>Teleport confirmed.</green>"
   no_confirmation_pending: "%prefix% <red>You have no pending teleport to confirm.</red>"
+  refunded: "%prefix% <green>You have been refunded <cost> because the teleport failed.</green>"
+
+matchmaking:
+  disabled: "%prefix% <red>Matchmaking queue is currently disabled.</red>"
+  already_in_queue: "%prefix% <yellow>You are already in the matchmaking queue!</yellow>"
+  joined_queue: "%prefix% <green>You joined the matchmaking queue for <gold><world></gold>! Players in queue: <yellow><players></yellow></green>"
+  not_in_queue: "%prefix% <red>You are not in the matchmaking queue.</red>"
+  left_queue: "%prefix% <yellow>You left the matchmaking queue.</yellow>"
+  queue_timeout: "%prefix% <red>You were removed from the matchmaking queue due to timeout.</red>"
+  no_location_found: "%prefix% <red>Failed to find a safe location for your match. Please try again.</red>"
+  match_found: "%prefix% <gradient:#20B2AA:#7FFFD4>Match found!</gradient> <green>Teleporting with: <yellow><players></yellow></green>"
+  teleport_failed: "%prefix% <red>Failed to teleport to match location. Please try again.</red>"
+  usage: "%prefix% <red>Usage: /rtp queue <join|leave|status> [world]</red>"
+  status: "%prefix% <gold>Matchmaking Status:</gold><newline><gray>World: <white><world></white><newline><gray>Queue Size: <yellow><queue_size></yellow><newline><gray>You in queue: <white><in_queue></white>"
+
+sendlocation:
+  usage: "%prefix% <red>Usage: /rtp sendlocation <x> <y> <z> <world> <player></red>"
+  invalid_coordinates: "%prefix% <red>Invalid coordinates! Please use numbers only.</red>"
+  success: "%prefix% <green>Successfully teleported <player> to <x>, <y>, <z> in <world>.</green>"
+  teleported: "%prefix% <gradient:#20B2AA:#7FFFD4>You have been teleported to coordinates <x>, <y>, <z> in <world>!</gradient>"
+  failed: "%prefix% <red>Failed to teleport player to the specified location.</red>"
 
 zone:
   command:
@@ -218,5 +241,28 @@ near_claim_rtp:
   no_world: "%prefix% <red>Target world not found.</red>"
   no_claims: "%prefix% <red>No claims found in this world.</red>"
   no_other_claims: "%prefix% <red>No other players' claims found in this world.</red>"
+  no_safe_location: "%prefix% <red>Could not find a safe location near any claim. Please try again.</red>"
+  teleport_failed: "%prefix% <red>Teleportation failed. Please try again.</red>"
+
+# --- Economy Refund Messages ---
+economy_refund:
+  refund_success: "%prefix% <green>You have been refunded <amount> due to RTP failure.</green>"
+  refund_failed: "%prefix% <red>Refund failed. Please contact an administrator.</red>"
+
+# --- Matchmaking Queue Messages ---
+matchmaking_queue:
+  joined_queue: "%prefix% <green>You joined the matchmaking queue for <gold><world></gold>! Players in queue: <yellow><players></yellow></green>"
+  left_queue: "%prefix% <yellow>You left the matchmaking queue.</yellow>"
+  queue_timeout: "%prefix% <red>You were removed from the matchmaking queue due to timeout.</red>"
+  match_found: "%prefix% <gradient:#20B2AA:#7FFFD4>Match found!</gradient> <green>Teleporting with: <yellow><players></yellow></green>"
+  teleport_failed: "%prefix% <red>Failed to teleport to match location. Please try again.</red>"
+
+# --- Sendlocation Command Messages ---
+sendlocation_command:
+  player_only: "%prefix% <red>This command can only be used by a player.</red>"
+  no_permission: "%prefix% <red>You do not have permission to use this command.</red>"
+  usage: "%prefix% <red>Usage: /rtp sendlocation <x> <y> <z> <world> <player></red>"
+  world_not_found: "%prefix% <red>World '<world>' not found. Available worlds: <worlds></red>"
+  player_not_found: "%prefix% <red>Player '<player>' not found or is offline.</red>"
   no_safe_location: "%prefix% <red>Could not find a safe location near any claim. Please try again.</red>"
   teleport_failed: "%prefix% <red>Teleportation failed. Please try again.</red>"

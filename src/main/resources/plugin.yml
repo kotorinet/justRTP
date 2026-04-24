@@ -1,4 +1,4 @@
- name: JustRTP
+name: JustRTP
 version: ${project.version}
 main: eu.kotori.justRTP.JustRTP
 api-version: '1.21'
@@ -52,6 +52,12 @@ permissions:
   justrtp.command.rtp.location:
     description: Allows using the /rtp location command for custom locations.
     default: true
+  justrtp.command.rtp.matchmaking:
+    description: Allows using the /rtp queue (matchmaking) commands for PvP duels.
+    default: true
+  justrtp.command.rtp.sendlocation:
+    description: Allows using the /rtp sendlocation command to send a location to another player.
+    default: true
   justrtp.command.reload:
     description: Allows use of the /rtp reload command.
     default: op
@@ -88,3 +94,6 @@ permissions:
   justrtp.command.help:
     description: Allows viewing the /rtp help command.
     default: true
+  justrtp.bypass.default_world:
+    description: Bypasses the server-wide default world setting.
+    default: op

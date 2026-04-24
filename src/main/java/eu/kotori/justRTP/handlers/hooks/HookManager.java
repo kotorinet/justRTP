@@ -21,22 +21,22 @@ public class HookManager {
             plugin.getLogger().info("Region respect is disabled in config.");
             return;
         }
-        
+
         if (isPluginEnabled("WorldGuard")) {
             activeHooks.add(new WorldGuardHook());
             plugin.getLogger().info("Successfully hooked into WorldGuard.");
         }
-        
+
         if (isPluginEnabled("KingdomsX") || isPluginEnabled("Kingdoms")) {
             activeHooks.add(new KingdomXHook());
             plugin.getLogger().info("Successfully hooked into KingdomsX.");
         }
-        
+
         if (isPluginEnabled("TownsAndNations")) {
             activeHooks.add(new TownsAndNationsHook());
             plugin.getLogger().info("Successfully hooked into Towns and Nations.");
         }
-        
+
         if (isPluginEnabled("SimpleClaimSystem")) {
             activeHooks.add(new SimpleClaimSystemHook());
             plugin.getLogger().info("Successfully hooked into SimpleClaimSystem.");

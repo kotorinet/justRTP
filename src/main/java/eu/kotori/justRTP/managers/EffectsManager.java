@@ -311,7 +311,7 @@ public class EffectsManager {
         if (cs == null || !cs.getBoolean("enabled", true))
             return;
 
-        String translatedMessage = plugin.getLocaleManager().getRawMessage("teleport.delay");
+        String translatedMessage = plugin.getLocaleManager().getRawMessage("teleport.delay_actionbar");
 
         if (translatedMessage == null || translatedMessage.isEmpty()) {
             translatedMessage = cs.getString("text", "<yellow>Teleporting in <gold><time>s<yellow>... Don't move!");

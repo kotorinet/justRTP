@@ -9,10 +9,10 @@ import org.bukkit.plugin.Plugin;
 import java.lang.reflect.Method;
 
 public class TownsAndNationsHook implements RegionHook {
-    
+
     private static Class<?> claimManagerClass;
     private static Method isChunkClaimedMethod;
-    
+
     static {
         try {
             claimManagerClass = Class.forName("org.tan.TownsAndNations.DataClass.ClaimManager");
@@ -25,20 +25,20 @@ public class TownsAndNationsHook implements RegionHook {
             }
         }
     }
-    
+
     @Override
     public boolean isLocationSafe(Location location) {
         if (claimManagerClass == null || isChunkClaimedMethod == null) {
             return true;
         }
-        
+
         try {
             Chunk chunk = location.getChunk();
-            
+
             Boolean isClaimed = (Boolean) isChunkClaimedMethod.invoke(null, chunk);
-            
+
             return isClaimed == null || !isClaimed;
-            
+
         } catch (Exception e) {
             Plugin tan = Bukkit.getPluginManager().getPlugin("TownsAndNations");
             if (tan != null) {
