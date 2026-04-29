@@ -557,10 +557,11 @@ public class HologramManager {
                         UUID uuid = UUID.fromString(uuidString);
                         Entity entity = Bukkit.getEntity(uuid);
                         if (entity instanceof TextDisplay && entity.isValid()) {
-                            entity.remove();
-                            plugin.getRTPLogger().debug("HOLOGRAM",
-                                    "Removed orphaned hologram entity by UUID: " + uuid);
-
+                            plugin.getFoliaScheduler().runAtEntity(entity, () -> {
+                                entity.remove();
+                                plugin.getRTPLogger().debug("HOLOGRAM",
+                                        "Removed orphaned hologram entity by UUID: " + uuid);
+                            });
                         }
                     } catch (Exception e) {
                     }
@@ -571,16 +572,7 @@ public class HologramManager {
         displayEntitiesConfig.set("zones", null);
         saveDisplayEntities();
 
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntitiesByClass(TextDisplay.class)) {
-                if (entity.hasMetadata(HOLOGRAM_METADATA_KEY)) {
-                    entity.remove();
-                    plugin.getRTPLogger().debug("HOLOGRAM",
-                            "Removed orphaned hologram entity by metadata: " + entity.getUniqueId());
-
-                }
-            }
-        }
+        removeOrphanHologramEntities();
         plugin.getRTPLogger().debug("HOLOGRAM", "Hologram cleanup complete.");
 
     }
@@ -592,7 +584,10 @@ public class HologramManager {
             packetHologramManager.cleanupAllHolograms();
         }
 
-        activeHolograms.values().forEach(instance -> instance.displays.forEach(Entity::remove));
+        activeHolograms.values().forEach(instance -> instance.displays.forEach(display -> {
+            if (display == null) return;
+            plugin.getFoliaScheduler().runAtEntity(display, display::remove);
+        }));
         activeHolograms.clear();
 
         ConfigurationSection zonesSection = displayEntitiesConfig.getConfigurationSection("zones");
@@ -604,10 +599,11 @@ public class HologramManager {
                         UUID uuid = UUID.fromString(uuidString);
                         Entity entity = Bukkit.getEntity(uuid);
                         if (entity instanceof TextDisplay && entity.isValid()) {
-                            entity.remove();
-                            plugin.getRTPLogger().debug("HOLOGRAM",
-                                    "Removed orphaned hologram entity by UUID: " + uuid);
-
+                            plugin.getFoliaScheduler().runAtEntity(entity, () -> {
+                                entity.remove();
+                                plugin.getRTPLogger().debug("HOLOGRAM",
+                                        "Removed orphaned hologram entity by UUID: " + uuid);
+                            });
                         }
                     } catch (Exception e) {
                     }
@@ -618,17 +614,24 @@ public class HologramManager {
         displayEntitiesConfig.set("zones", null);
         saveDisplayEntities();
 
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntitiesByClass(TextDisplay.class)) {
-                if (entity.hasMetadata(HOLOGRAM_METADATA_KEY)) {
-                    entity.remove();
-                    plugin.getRTPLogger().debug("HOLOGRAM",
-                            "Removed orphaned hologram entity by metadata: " + entity.getUniqueId());
-
-                }
-            }
-        }
+        removeOrphanHologramEntities();
         plugin.getRTPLogger().debug("HOLOGRAM", "Hologram cleanup complete.");
 
+    }
+
+    private void removeOrphanHologramEntities() {
+        for (World world : Bukkit.getWorlds()) {
+            for (Chunk chunk : world.getLoadedChunks()) {
+                plugin.getFoliaScheduler().runAtChunk(chunk, () -> {
+                    for (Entity entity : chunk.getEntities()) {
+                        if (entity instanceof TextDisplay && entity.hasMetadata(HOLOGRAM_METADATA_KEY)) {
+                            entity.remove();
+                            plugin.getRTPLogger().debug("HOLOGRAM",
+                                    "Removed orphaned hologram entity by metadata: " + entity.getUniqueId());
+                        }
+                    }
+                });
+            }
+        }
     }
 }

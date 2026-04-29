@@ -52,7 +52,7 @@ public class RTPService {
     private final HookManager hookManager;
     private EnumSet<Material> blacklistedBlocks;
     private final Map<String, WorldType> worldTypes = new ConcurrentHashMap<>();
-    private final Set<String> borderWarningShown = new HashSet<>();
+    private final Set<String> borderWarningShown = ConcurrentHashMap.newKeySet();
 
     private String worldMode;
     private Set<String> worldList;
@@ -179,54 +179,47 @@ public class RTPService {
                 return;
             }
 
-            plugin.getFoliaScheduler().runAtEntity(player, () -> {
-                if (!player.isOnline()) {
+            player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+            player.setFallDistance(0f);
+
+            PaperLib.teleportAsync(player, location).thenAccept(success -> {
+                if (success && player.isOnline()) {
+                    plugin.getFoliaScheduler().runAtEntity(player, () -> {
+                        if (!player.isOnline()) {
+                            resultFuture.complete(false);
+                            return;
+                        }
+
+                        player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+                        player.setFallDistance(0f);
+
+                        if (FoliaScheduler.isFolia()) {
+                            plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
+                                if (player.isOnline()) {
+                                    refreshPlayerChunks(player, location);
+                                }
+                            }, 5L);
+                        }
+
+                        plugin.getEffectsManager().applyPostTeleportEffects(player);
+
+                        PlayerPostRTPEvent postEvent = new PlayerPostRTPEvent(
+                                player,
+                                fromLocation,
+                                location,
+                                targetWorld,
+                                minRadius,
+                                maxRadius,
+                                cost,
+                                isCrossServer,
+                                targetServer);
+                        Bukkit.getPluginManager().callEvent(postEvent);
+
+                        resultFuture.complete(true);
+                    });
+                } else {
                     resultFuture.complete(false);
-                    return;
                 }
-
-                player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
-                player.setFallDistance(0f);
-
-                PaperLib.teleportAsync(player, location).thenAccept(success -> {
-                    if (success && player.isOnline()) {
-                        plugin.getFoliaScheduler().runAtEntity(player, () -> {
-                            if (!player.isOnline()) {
-                                resultFuture.complete(false);
-                                return;
-                            }
-
-                            player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
-                            player.setFallDistance(0f);
-
-                            if (FoliaScheduler.isFolia()) {
-                                plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
-                                    if (player.isOnline()) {
-                                        refreshPlayerChunks(player, location);
-                                    }
-                                }, 5L);
-                            }
-
-                            plugin.getEffectsManager().applyPostTeleportEffects(player);
-
-                            PlayerPostRTPEvent postEvent = new PlayerPostRTPEvent(
-                                    player,
-                                    fromLocation,
-                                    location,
-                                    targetWorld,
-                                    minRadius,
-                                    maxRadius,
-                                    cost,
-                                    isCrossServer,
-                                    targetServer);
-                            Bukkit.getPluginManager().callEvent(postEvent);
-
-                            resultFuture.complete(true);
-                        });
-                    } else {
-                        resultFuture.complete(false);
-                    }
-                });
             });
         });
 

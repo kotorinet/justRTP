@@ -986,20 +986,24 @@ public class RTPCommand implements CommandExecutor {
                     if (locationOpt.isPresent()) {
                         Location safeLoc = locationOpt.get();
                         plugin.getFoliaScheduler().runAtEntity(player, () -> {
-                            player.teleport(safeLoc);
-                            plugin.getLocaleManager().sendMessage(player, "nearplayer.success",
-                                    Placeholder.unparsed("world", targetWorld.getName()));
+                            player.teleportAsync(safeLoc).thenAccept(success -> {
+                                if (!success) return;
+                                plugin.getFoliaScheduler().runAtEntity(player, () -> {
+                                    plugin.getLocaleManager().sendMessage(player, "nearplayer.success",
+                                            Placeholder.unparsed("world", targetWorld.getName()));
 
-                            boolean silent = plugin.getConfig().getBoolean("nearplayer.silent", false);
-                            if (!silent && target.isOnline()) {
-                                plugin.getLocaleManager().sendMessage(target, "nearplayer.notify_target",
-                                        Placeholder.unparsed("player", player.getName()));
-                            }
+                                    boolean silent = plugin.getConfig().getBoolean("nearplayer.silent", false);
+                                    if (!silent && target.isOnline()) {
+                                        plugin.getLocaleManager().sendMessage(target, "nearplayer.notify_target",
+                                                Placeholder.unparsed("player", player.getName()));
+                                    }
 
-                            plugin.getRTPLogger().debug("NEARPLAYER",
-                                    "Successfully teleported " + player.getName() + " near " + target.getName()
-                                            + " to " + safeLoc.getBlockX() + ", " + safeLoc.getBlockY() + ", "
-                                            + safeLoc.getBlockZ());
+                                    plugin.getRTPLogger().debug("NEARPLAYER",
+                                            "Successfully teleported " + player.getName() + " near " + target.getName()
+                                                    + " to " + safeLoc.getBlockX() + ", " + safeLoc.getBlockY() + ", "
+                                                    + safeLoc.getBlockZ());
+                                });
+                            });
                         });
                     } else {
                         plugin.getFoliaScheduler().runAtEntity(player, () -> {
