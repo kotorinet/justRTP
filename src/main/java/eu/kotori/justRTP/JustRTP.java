@@ -26,8 +26,8 @@ import java.util.List;
 
 public final class JustRTP extends JavaPlugin {
 
-    private static final int CONFIG_VERSION = 32;
-    private static final int MESSAGES_CONFIG_VERSION = 19;
+    private static final int CONFIG_VERSION = 33;
+    private static final int MESSAGES_CONFIG_VERSION = 20;
     private static final int MYSQL_CONFIG_VERSION = 5;
     private static final int ANIMATIONS_CONFIG_VERSION = 2;
     private static final int COMMANDS_CONFIG_VERSION = 4;

@@ -1083,17 +1083,68 @@ public class RTPCommand implements CommandExecutor {
                 plugin.getMatchmakingManager().joinQueue(player, world, Optional.empty(), Optional.empty());
             }
             case "leave" -> plugin.getMatchmakingManager().leaveQueue(player);
-            case "status" -> {
-                World world = player.getWorld();
-                int queueSize = plugin.getMatchmakingManager().getQueueSize(world);
-                boolean inQueue = plugin.getMatchmakingManager().isInQueue(player);
-                plugin.getLocaleManager().sendMessage(sender, "matchmaking.status",
-                        Placeholder.unparsed("world", world.getName()),
-                        Placeholder.unparsed("queue_size", String.valueOf(queueSize)),
-                        Placeholder.unparsed("in_queue", inQueue ? "Yes" : "No"));
-            }
+            case "status" -> sendMatchmakingStatus(player);
             default -> plugin.getLocaleManager().sendMessage(sender, "matchmaking.usage");
         }
+    }
+
+    private void sendMatchmakingStatus(Player player) {
+        World world = player.getWorld();
+        var manager = plugin.getMatchmakingManager();
+        int queueSize = manager.getQueueSize(world);
+        int teamSize = manager.getTeamSize();
+        boolean inQueue = manager.isInQueue(player);
+
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_header");
+
+        if (!manager.isEnabled()) {
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_disabled");
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_footer");
+            return;
+        }
+
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_world",
+                Placeholder.unparsed("world", world.getName()));
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_queue",
+                Placeholder.unparsed("queue_size", String.valueOf(queueSize)),
+                Placeholder.unparsed("team_size", String.valueOf(teamSize)));
+
+        if (inQueue) {
+            int position = manager.getQueuePosition(player, world);
+            long waited = manager.getWaitedSeconds(player);
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_in_queue",
+                    Placeholder.unparsed("position", String.valueOf(Math.max(1, position))));
+            if (waited >= 0) {
+                plugin.getLocaleManager().sendMessage(player, "matchmaking.status_waited",
+                        Placeholder.unparsed("waited", TimeUtils.formatDuration((int) waited)));
+            }
+        } else {
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_not_in_queue");
+        }
+
+        if (queueSize >= teamSize) {
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_ready");
+        } else {
+            int needed = teamSize - queueSize;
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_eta_more",
+                    Placeholder.unparsed("needed", String.valueOf(needed)));
+        }
+
+        Map<World, Integer> others = manager.getActiveQueueSizes();
+        others.remove(world);
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_other_header");
+        if (others.isEmpty()) {
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_other_none");
+        } else {
+            for (Map.Entry<World, Integer> entry : others.entrySet()) {
+                plugin.getLocaleManager().sendMessage(player, "matchmaking.status_other_entry",
+                        Placeholder.unparsed("other_world", entry.getKey().getName()),
+                        Placeholder.unparsed("other_size", String.valueOf(entry.getValue())),
+                        Placeholder.unparsed("team_size", String.valueOf(teamSize)));
+            }
+        }
+
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_footer");
     }
 
     private void handleSendLocation(CommandSender sender, String[] args) {

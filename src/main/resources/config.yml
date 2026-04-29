@@ -8,7 +8,7 @@
 # - FIXED: Folia threading violation in onPlayerDropItem
 # - FIXED: ClassNotFoundException for Pl3xMap on servers without it
 # ----------------------------------------------------------------
-config-version: 32
+config-version: 33
 # ----------------------------------------------------------------
 
 settings:
@@ -312,6 +312,19 @@ performance:
   # How many players to teleport at once from the queue each time it is processed.
   # Increasing this can significantly speed up teleports on busy servers.
   queue_batch_size: 5
+
+# --- RTP Zone Countdown Title ---
+# Shows a default countdown title to players standing in any RTP zone.
+# Per-zone effects defined in rtp_zones.yml take precedence when their title is enabled.
+# Use the <time> placeholder for a formatted countdown (e.g. "5s", "1m 20s").
+zone_title:
+  enabled: false
+  main_title: "<gradient:#FFD700:#FFA500><bold>RTP</bold></gradient>"
+  subtitle: "<gray>Teleporting in <yellow><time></yellow></gray>"
+  # Times are in ticks (20 ticks = 1 second).
+  fade_in: 0
+  stay: 25
+  fade_out: 5
 
 # --- RTP Matchmaking Queue (PvP Duels) ---
 # Players can queue up and teleport together to the same location

@@ -104,6 +104,39 @@ public class RTPMatchmakingManager {
         return queue != null ? queue.size() : 0;
     }
 
+    public int getQueuePosition(Player player, World world) {
+        List<MatchmakingRequest> queue = worldQueues.get(world);
+        if (queue == null) return -1;
+        UUID uuid = player.getUniqueId();
+        synchronized (queue) {
+            for (int i = 0; i < queue.size(); i++) {
+                if (queue.get(i).player().getUniqueId().equals(uuid)) {
+                    return i + 1;
+                }
+            }
+        }
+        return -1;
+    }
+
+    public long getWaitedSeconds(Player player) {
+        Long ts = queueTimestamps.get(player.getUniqueId());
+        if (ts == null) return -1;
+        return Math.max(0, (System.currentTimeMillis() - ts) / 1000L);
+    }
+
+    public int getTeamSize() {
+        return Math.max(2, plugin.getConfig().getInt("matchmaking.team_size", 2));
+    }
+
+    public Map<World, Integer> getActiveQueueSizes() {
+        Map<World, Integer> sizes = new LinkedHashMap<>();
+        for (Map.Entry<World, List<MatchmakingRequest>> entry : worldQueues.entrySet()) {
+            int size = entry.getValue().size();
+            if (size > 0) sizes.put(entry.getKey(), size);
+        }
+        return sizes;
+    }
+
     public boolean isEnabled() {
         return plugin.getConfig().getBoolean("matchmaking.enabled", true);
     }

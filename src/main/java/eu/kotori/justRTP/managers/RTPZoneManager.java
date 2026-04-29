@@ -657,6 +657,7 @@ public class RTPZoneManager {
             return;
 
         if (timeRemaining > 0) {
+            boolean shownZoneTitle = false;
             ConfigurationSection titleSection = waitingEffects.getConfigurationSection("title");
             if (titleSection != null && titleSection.getBoolean("enabled", false)) {
                 String titleText = titleSection.getString("main_title", "");
@@ -670,6 +671,29 @@ public class RTPZoneManager {
                             Duration.ofMillis(fadeOut * 50));
                     Title title = Title.title(
                             MiniMessage.miniMessage().deserialize(titleText),
+                            MiniMessage.miniMessage().deserialize(subtitleText,
+                                    Placeholder.unparsed("time",
+                                            eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),
+                            times);
+                    player.showTitle(title);
+                    shownZoneTitle = true;
+                }
+            }
+
+            if (!shownZoneTitle && plugin.getConfig().getBoolean("zone_title.enabled", false)) {
+                String titleText = plugin.getConfig().getString("zone_title.main_title", "");
+                String subtitleText = plugin.getConfig().getString("zone_title.subtitle", "");
+                if (!titleText.isBlank() || !subtitleText.isBlank()) {
+                    long fadeIn = plugin.getConfig().getLong("zone_title.fade_in", 0);
+                    long stay = plugin.getConfig().getLong("zone_title.stay", 25);
+                    long fadeOut = plugin.getConfig().getLong("zone_title.fade_out", 5);
+
+                    Title.Times times = Title.Times.times(Duration.ofMillis(fadeIn * 50), Duration.ofMillis(stay * 50),
+                            Duration.ofMillis(fadeOut * 50));
+                    Title title = Title.title(
+                            MiniMessage.miniMessage().deserialize(titleText,
+                                    Placeholder.unparsed("time",
+                                            eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),
                             MiniMessage.miniMessage().deserialize(subtitleText,
                                     Placeholder.unparsed("time",
                                             eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),

@@ -2,7 +2,7 @@
 # JustRTP Message Configuration
 # ----------------------------------------------------------------
 # CONFIG VERSION - DO NOT CHANGE THIS
-config-version: 19
+config-version: 20
 # ----------------------------------------------------------------
 # NOTE: The <time> placeholder is automatically formatted in human-readable format
 #       Examples: "5m 38s", "1h 2m", "30s"
@@ -90,6 +90,19 @@ matchmaking:
   teleport_failed: "%prefix% <red>Failed to teleport to match location. Please try again.</red>"
   usage: "%prefix% <red>Usage: /rtp queue <join|leave|status> [world]</red>"
   status: "%prefix% <gold>Matchmaking Status:</gold><newline><gray>World: <white><world></white><newline><gray>Queue Size: <yellow><queue_size></yellow><newline><gray>You in queue: <white><in_queue></white>"
+  status_header: "<dark_gray><strikethrough>                    </strikethrough> <gradient:#FFD700:#FFA500><bold>⚔ RTP MATCHMAKING ⚔</bold></gradient> <dark_gray><strikethrough>                    </strikethrough></dark_gray>"
+  status_world: " <gold>◆</gold> <gray>World:</gray> <white><world></white>"
+  status_queue: " <gold>◆</gold> <gray>Players in queue:</gray> <yellow><queue_size></yellow><dark_gray>/</dark_gray><yellow><team_size></yellow>"
+  status_in_queue: " <green>✔</green> <gray>You are in queue</gray> <dark_gray>(position</dark_gray> <white>#<position></white><dark_gray>)</dark_gray>"
+  status_not_in_queue: " <red>✘</red> <gray>You are not in queue</gray>"
+  status_waited: " <gold>◆</gold> <gray>Waiting time:</gray> <aqua><waited></aqua>"
+  status_eta_more: " <yellow>➜</yellow> <gray>Need <yellow><needed></yellow> more player(s) to start</gray>"
+  status_ready: " <green>✦</green> <green><bold>Match ready! Teleporting soon...</bold></green>"
+  status_other_header: " <gold>◆</gold> <gray>Other active queues:</gray>"
+  status_other_entry: "    <dark_gray>•</dark_gray> <white><other_world>:</white> <yellow><other_size></yellow><dark_gray>/</dark_gray><yellow><team_size></yellow>"
+  status_other_none: "    <dark_gray>(no other queues active)</dark_gray>"
+  status_disabled: " <red>✘</red> <gray>Matchmaking is currently <red>disabled</red> in config.</gray>"
+  status_footer: "<dark_gray><strikethrough>                                                                </strikethrough></dark_gray>"
 
 sendlocation:
   usage: "%prefix% <red>Usage: /rtp sendlocation <x> <y> <z> <world> <player></red>"
