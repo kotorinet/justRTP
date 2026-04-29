@@ -287,43 +287,43 @@ public final class JustRTP extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        logShutdownInfo("Disabling JustRTP...");
         if (rtpLogger != null) {
             rtpLogger.separator();
-            rtpLogger.info("SHUTDOWN", "Disabling JustRTP...");
         }
 
         if (addonManager != null) {
-            rtpLogger.debug("SHUTDOWN", "Disabling addons...");
+            logShutdownDebug("Disabling addons...");
             addonManager.disableAddons();
         }
 
         if (rtpZoneManager != null) {
-            rtpLogger.debug("SHUTDOWN", "Shutting down zone tasks...");
+            logShutdownDebug("Shutting down zone tasks...");
             rtpZoneManager.shutdownAllTasks();
         }
 
         if (effectsManager != null) {
-            rtpLogger.debug("SHUTDOWN", "Removing boss bars...");
+            logShutdownDebug("Removing boss bars...");
             effectsManager.removeAllBossBars();
         }
 
         if (fastStatsMetrics != null) {
-            rtpLogger.debug("SHUTDOWN", "Shutting down FastStats...");
+            logShutdownDebug("Shutting down FastStats...");
             fastStatsMetrics.shutdown();
         }
 
         if (databaseManager != null && databaseManager.isConnected()) {
-            rtpLogger.info("DATABASE", "Closing MySQL connection...");
+            logShutdownInfo("Closing MySQL connection...");
             databaseManager.close();
         }
 
         if (locationCacheManager != null) {
-            rtpLogger.info("CACHE", "Saving location cache...");
+            logShutdownInfo("Saving location cache...");
             locationCacheManager.shutdown();
         }
 
         if (hologramManager != null) {
-            rtpLogger.debug("SHUTDOWN", "Cleaning up holograms...");
+            logShutdownDebug("Cleaning up holograms...");
             hologramManager.cleanupAllHolograms();
         }
 
@@ -332,6 +332,20 @@ public final class JustRTP extends JavaPlugin {
         if (rtpLogger != null) {
             rtpLogger.success("Plugin disabled successfully");
             rtpLogger.separator();
+        }
+    }
+
+    private void logShutdownInfo(String message) {
+        if (rtpLogger != null) {
+            rtpLogger.info("SHUTDOWN", message);
+        } else {
+            getLogger().info(message);
+        }
+    }
+
+    private void logShutdownDebug(String message) {
+        if (rtpLogger != null) {
+            rtpLogger.debug("SHUTDOWN", message);
         }
     }
 
@@ -391,7 +405,10 @@ public final class JustRTP extends JavaPlugin {
         }
         locationCacheManager = new LocationCacheManager(this);
         locationCacheManager.initialize();
-        animationManager = new AnimationManager(this);
+
+        if (matchmakingManager != null) {
+            matchmakingManager.restart();
+        }
 
         for (Player player : getServer().getOnlinePlayers()) {
             rtpZoneManager.handlePlayerMove(player, player.getLocation());
@@ -551,13 +568,20 @@ public final class JustRTP extends JavaPlugin {
         return matchmakingManager;
     }
 
-    private DataManager dataManager;
+    private volatile DataManager dataManager;
 
     public DataManager getDataManager() {
-        if (dataManager == null) {
-            dataManager = new DataManager(this);
+        DataManager local = dataManager;
+        if (local == null) {
+            synchronized (this) {
+                local = dataManager;
+                if (local == null) {
+                    local = new DataManager(this);
+                    dataManager = local;
+                }
+            }
         }
-        return dataManager;
+        return local;
     }
 
     private PlayerListener playerListener;

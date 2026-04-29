@@ -1,6 +1,7 @@
 package eu.kotori.justRTP.managers;
 
 import eu.kotori.justRTP.JustRTP;
+import eu.kotori.justRTP.utils.task.CancellableTask;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -18,9 +19,22 @@ public class RTPMatchmakingManager {
     private final JustRTP plugin;
     private final Map<World, List<MatchmakingRequest>> worldQueues = new ConcurrentHashMap<>();
     private final Map<UUID, Long> queueTimestamps = new ConcurrentHashMap<>();
+    private CancellableTask tickerTask;
 
     public RTPMatchmakingManager(JustRTP plugin) {
         this.plugin = plugin;
+        startMatchmakingTicker();
+    }
+
+    public void stop() {
+        if (tickerTask != null && !tickerTask.isCancelled()) {
+            tickerTask.cancel();
+        }
+        tickerTask = null;
+    }
+
+    public void restart() {
+        stop();
         startMatchmakingTicker();
     }
 
@@ -95,9 +109,9 @@ public class RTPMatchmakingManager {
     }
 
     private void startMatchmakingTicker() {
-        int tickInterval = plugin.getConfig().getInt("matchmaking.tick_interval", 60);
+        int tickInterval = Math.max(1, plugin.getConfig().getInt("matchmaking.tick_interval", 60));
 
-        plugin.getFoliaScheduler().runTimer(() -> {
+        tickerTask = plugin.getFoliaScheduler().runTimer(() -> {
             if (!isEnabled()) return;
 
             for (Map.Entry<World, List<MatchmakingRequest>> entry : worldQueues.entrySet()) {
@@ -207,7 +221,7 @@ public class RTPMatchmakingManager {
                         return;
                     }
 
-                    Location finalLoc = safeLocOpt.orElse(playerLoc);
+                    Location finalLoc = safeLocOpt.orElse(location);
 
                     plugin.getRtpService().teleportPlayer(
                             player,

@@ -501,16 +501,19 @@ public class PlayerListener implements Listener {
                 chunkFutures[index++] = PaperLib.getChunkAtAsync(world, chunkX, chunkZ, false)
                         .thenApply(chunk -> {
                             if (FoliaScheduler.isFolia() && chunk != null) {
-                                try {
-                                    chunk.addPluginChunkTicket(plugin);
-                                    plugin.getFoliaScheduler().runLater(() -> {
-                                        try {
-                                            chunk.removePluginChunkTicket(plugin);
-                                        } catch (Exception ignored) {
-                                        }
-                                    }, 40L);
-                                } catch (Exception ignored) {
-                                }
+                                plugin.getFoliaScheduler().runAtChunk(chunk, () -> {
+                                    try {
+                                        chunk.addPluginChunkTicket(plugin);
+                                    } catch (Exception ignored) {
+                                    }
+                                });
+                                plugin.getFoliaScheduler().runLater(() ->
+                                        plugin.getFoliaScheduler().runAtChunk(chunk, () -> {
+                                            try {
+                                                chunk.removePluginChunkTicket(plugin);
+                                            } catch (Exception ignored) {
+                                            }
+                                        }), 40L);
                             }
                             return chunk;
                         });
@@ -530,15 +533,27 @@ public class PlayerListener implements Listener {
 
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-                try {
-                    int chunkX = centerChunkX + dx;
-                    int chunkZ = centerChunkZ + dz;
+                final int chunkX = centerChunkX + dx;
+                final int chunkZ = centerChunkZ + dz;
 
-                    if (world.isChunkLoaded(chunkX, chunkZ)) {
+                if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                    continue;
+                }
+
+                if (FoliaScheduler.isFolia()) {
+                    Chunk chunk = world.getChunkAt(chunkX, chunkZ);
+                    plugin.getFoliaScheduler().runAtChunk(chunk, () -> {
+                        try {
+                            chunk.getEntities();
+                        } catch (Exception ignored) {
+                        }
+                    });
+                } else {
+                    try {
                         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
                         chunk.getEntities();
+                    } catch (Exception ignored) {
                     }
-                } catch (Exception ignored) {
                 }
             }
         }
