@@ -653,12 +653,12 @@ public class RTPZoneManager {
 
     private void updateWaitingEffects(Player player, RTPZone zone, int timeRemaining) {
         ConfigurationSection waitingEffects = getZoneEffects(zone, "waiting");
-        if (waitingEffects == null)
-            return;
 
         if (timeRemaining > 0) {
             boolean shownZoneTitle = false;
-            ConfigurationSection titleSection = waitingEffects.getConfigurationSection("title");
+            ConfigurationSection titleSection = waitingEffects != null
+                    ? waitingEffects.getConfigurationSection("title")
+                    : null;
             if (titleSection != null && titleSection.getBoolean("enabled", false)) {
                 String titleText = titleSection.getString("main_title", "");
                 String subtitleText = titleSection.getString("subtitle", "");
@@ -670,7 +670,9 @@ public class RTPZoneManager {
                     Title.Times times = Title.Times.times(Duration.ofMillis(fadeIn * 50), Duration.ofMillis(stay * 50),
                             Duration.ofMillis(fadeOut * 50));
                     Title title = Title.title(
-                            MiniMessage.miniMessage().deserialize(titleText),
+                            MiniMessage.miniMessage().deserialize(titleText,
+                                    Placeholder.unparsed("time",
+                                            eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),
                             MiniMessage.miniMessage().deserialize(subtitleText,
                                     Placeholder.unparsed("time",
                                             eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),
@@ -701,6 +703,10 @@ public class RTPZoneManager {
                     player.showTitle(title);
                 }
             }
+        }
+
+        if (waitingEffects == null) {
+            return;
         }
 
         ConfigurationSection actionBarSection = waitingEffects.getConfigurationSection("action_bar");
