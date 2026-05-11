@@ -3,7 +3,6 @@ package eu.kotori.justRTP.handlers;
 import eu.kotori.justRTP.JustRTP;
 import eu.kotori.justRTP.commands.RTPCommand;
 import eu.kotori.justRTP.utils.FoliaScheduler;
-import io.papermc.lib.PaperLib;
 import com.destroystokyo.paper.event.player.PlayerPostRespawnEvent;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -498,7 +497,7 @@ public class PlayerListener implements Listener {
                 int chunkX = centerChunkX + dx;
                 int chunkZ = centerChunkZ + dz;
 
-                chunkFutures[index++] = PaperLib.getChunkAtAsync(world, chunkX, chunkZ, false)
+                chunkFutures[index++] = world.getChunkAtAsync(chunkX, chunkZ, false)
                         .thenApply(chunk -> {
                             if (FoliaScheduler.isFolia() && chunk != null) {
                                 try {

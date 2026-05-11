@@ -6,7 +6,6 @@ import eu.kotori.justRTP.handlers.hooks.HookManager;
 import eu.kotori.justRTP.managers.ConfigManager;
 import eu.kotori.justRTP.utils.FoliaScheduler;
 import eu.kotori.justRTP.utils.SafetyValidator;
-import io.papermc.lib.PaperLib;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
@@ -238,7 +237,7 @@ public class RTPService {
             for (int dz = -1; dz <= 1; dz++) {
                 int chunkX = centerChunkX + dx;
                 int chunkZ = centerChunkZ + dz;
-                PaperLib.getChunkAtAsync(world, chunkX, chunkZ, false);
+                world.getChunkAtAsync(chunkX, chunkZ, false);
             }
         }
     }
@@ -406,7 +405,7 @@ public class RTPService {
         int chunkX = x >> 4;
         int chunkZ = z >> 4;
 
-        return PaperLib.getChunkAtAsync(world, chunkX, chunkZ, generateChunks).thenCompose(chunk -> {
+        return world.getChunkAtAsync(chunkX, chunkZ, generateChunks).thenCompose(chunk -> {
             if (chunk == null) {
                 plugin.getRTPLogger().debug("CHUNK",
                         "Failed to load chunk at " + chunkX + ", " + chunkZ + " in " + world.getName()
@@ -429,7 +428,7 @@ public class RTPService {
                 List<CompletableFuture<Chunk>> neighborFutures = new ArrayList<>();
                 for (int dx = -1; dx <= 1; dx++) {
                     for (int dz = -1; dz <= 1; dz++) {
-                        neighborFutures.add(PaperLib.getChunkAtAsync(world, chunkX + dx, chunkZ + dz, true));
+                        neighborFutures.add(world.getChunkAtAsync(chunkX + dx, chunkZ + dz, true));
                     }
                 }
 
