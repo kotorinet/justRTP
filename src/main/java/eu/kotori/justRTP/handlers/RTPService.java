@@ -182,7 +182,7 @@ public class RTPService {
             player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
             player.setFallDistance(0f);
 
-            PaperLib.teleportAsync(player, location).thenAccept(success -> {
+            player.teleportAsync(location).thenAccept(success -> {
                 if (success && player.isOnline()) {
                     plugin.getFoliaScheduler().runAtEntity(player, () -> {
                         if (!player.isOnline()) {

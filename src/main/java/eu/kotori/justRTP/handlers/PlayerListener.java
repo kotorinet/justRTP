@@ -156,7 +156,7 @@ public class PlayerListener implements Listener {
                                                     return;
                                                 }
 
-                                                PaperLib.teleportAsync(player, targetLocation).thenAccept(success -> {
+                                                player.teleportAsync(targetLocation).thenAccept(success -> {
                                                     if (success && player.isOnline()) {
                                                         plugin.getRTPLogger().debug("JOIN",
                                                                 "Successfully teleported " + player.getName()
