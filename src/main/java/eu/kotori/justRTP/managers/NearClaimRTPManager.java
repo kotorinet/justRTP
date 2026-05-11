@@ -2,7 +2,6 @@ package eu.kotori.justRTP.managers;
 
 import eu.kotori.justRTP.JustRTP;
 import eu.kotori.justRTP.utils.FormatUtils;
-import io.papermc.lib.PaperLib;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -166,7 +165,7 @@ public class NearClaimRTPManager {
         int chunkX = candidate.getBlockX() >> 4;
         int chunkZ = candidate.getBlockZ() >> 4;
         CompletableFuture<Optional<Location>> stepFuture = new CompletableFuture<>();
-        PaperLib.getChunkAtAsync(world, chunkX, chunkZ, true).thenAccept(chunk -> {
+        world.getChunkAtAsync(chunkX, chunkZ, true).thenAccept(chunk -> {
             this.plugin.getFoliaScheduler().runAtLocation(candidate, () -> {
                 try {
                     candidate.setY((double)(world.getHighestBlockYAt(candidate) + 1));

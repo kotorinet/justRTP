@@ -147,7 +147,7 @@ public class PacketHologramManager implements Listener {
             return;
         }
 
-        io.papermc.lib.PaperLib.getChunkAtAsync(location).thenAccept(chunk -> {
+        location.getWorld().getChunkAtAsync(location).thenAccept(chunk -> {
             plugin.getFoliaScheduler().runAtLocation(location, () -> {
                 try {
                     removeHologram(zoneId);

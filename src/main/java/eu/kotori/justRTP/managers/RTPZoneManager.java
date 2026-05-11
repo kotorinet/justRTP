@@ -532,7 +532,7 @@ public class RTPZoneManager {
     }
 
     private CompletableFuture<Location> findSafeYAtLocationAsync(World world, int x, int z) {
-        return io.papermc.lib.PaperLib.getChunkAtAsync(world, x >> 4, z >> 4).thenApply(chunk -> {
+        return world.getChunkAtAsync(x >> 4, z >> 4).thenApply(chunk -> {
             if (chunk == null)
                 return null;
 
