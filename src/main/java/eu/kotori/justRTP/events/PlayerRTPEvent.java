@@ -8,6 +8,12 @@ import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Fired before a player is teleported via RTP.
+ * Cancel it to stop the teleport, or change the destination world before it runs.
+ *
+ * API Documentation can be found on https://deltura.net/wiki/justrtp/api
+ */
 public class PlayerRTPEvent extends Event implements Cancellable {
     private static final HandlerList HANDLERS = new HandlerList();
     private boolean cancelled = false;

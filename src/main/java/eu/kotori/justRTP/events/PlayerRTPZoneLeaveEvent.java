@@ -6,6 +6,12 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Fired when a player leaves an RTP Zone. Use {@link #getReason()} to find out why.
+ * This event is NOT cancellable.
+ *
+ * API Documentation can be found on https://deltura.net/wiki/justrtp/api
+ */
 public class PlayerRTPZoneLeaveEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
 
@@ -14,18 +20,21 @@ public class PlayerRTPZoneLeaveEvent extends Event {
     private final LeaveReason reason;
     private final int playersInZone;
 
+    /**
+     * The reason a player left an RTP Zone.
+     */
     public enum LeaveReason {
-
+        /** The player walked out of the zone region. */
         MOVED_OUT,
-
+        /** The player was teleported out by the zone. */
         TELEPORTED,
-
+        /** The player disconnected while inside the zone. */
         DISCONNECTED,
-
+        /** The player was removed by a command. */
         COMMAND,
-
+        /** The zone or the plugin was disabled. */
         PLUGIN_DISABLE,
-
+        /** Any other reason. */
         OTHER
     }
 

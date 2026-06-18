@@ -8,6 +8,12 @@ import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Called after a player has been successfully teleported via RTP.
+ * This event is NOT cancellable - the teleport has already occurred.
+ *
+ * API Documentation can be found on https://deltura.net/wiki/justrtp/api
+ */
 public class PlayerPostRTPEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
 

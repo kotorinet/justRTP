@@ -8,6 +8,12 @@ import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 import java.util.List;
 
+/**
+ * Fired when a player enters a configured RTP Zone.
+ * Cancel it to keep the player out of the zone.
+ *
+ * API Documentation can be found on https://deltura.net/wiki/justrtp/api
+ */
 public class PlayerRTPZoneEnterEvent extends Event implements Cancellable {
     private static final HandlerList HANDLERS = new HandlerList();
     private boolean cancelled = false;
