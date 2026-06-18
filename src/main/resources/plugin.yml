@@ -5,7 +5,7 @@ api-version: '1.21'
 author: kotori
 description: A highly optimized and safe Random Teleport plugin with Folia, Velocity, and MySQL support.
 folia-supported: true
-softdepend: [Vault, PlaceholderAPI, WorldGuard, KingdomsX, Kingdoms, TownsAndNations, SimpleClaimSystem, packetevents, FancyHolograms]
+softdepend: [Vault, PlaceholderAPI, WorldGuard, KingdomsX, Kingdoms, TownsAndNations, SimpleClaimSystem, packetevents, FancyHolograms, AxoHologram]
 commands:
   justrtp:
     description: Randomly teleports a player with advanced options.
@@ -14,7 +14,7 @@ commands:
   rtpzone:
     description: Manages RTP Zones.
     aliases: [rtpzones]
-    usage: "/<command> <setup|delete|list|cancel|sethologram|delhologram|ignore> [args...]"
+    usage: "/<command> <setup|delete|list|cancel|done|sethologram|delhologram|ignore> [args...]"
 permissions:
   justrtp.admin:
     description: Grants access to all JustRTP admin commands like /rtp reload and /rtp proxystatus.
@@ -60,6 +60,9 @@ permissions:
     default: true
   justrtp.command.reload:
     description: Allows use of the /rtp reload command.
+    default: op
+  justrtp.command.dashboard:
+    description: Allows opening the /rtp dashboard admin control panel to manage modules.
     default: op
   justrtp.command.credits:
     description: Allows use of the /rtp credits command.

@@ -2,7 +2,7 @@
 # JustRTP Zones Configuration
 # ----------------------------------------------------------------
 # CONFIG VERSION - DO NOT CHANGE THIS
-config-version: 12
+config-version: 13
 # ----------------------------------------------------------------
 #
 # This file stores the configurations for your RTP zones.
@@ -13,7 +13,23 @@ config-version: 12
 #   <zone_id>: A unique name for your zone.
 #
 #   world: The name of the world where the zone region is located.
-#   pos1 & pos2: The two corner points of the zone cuboid.
+#
+#   shape: The zone region shape. One of:
+#     - CUBOID   (default) - two-corner box defined by pos1 and pos2
+#     - CYLINDER - circular region around center with radius and Y-range
+#     - BLOCKS   - arbitrary set of individual blocks (irregular arenas)
+#
+#   CUBOID fields:
+#     pos1 & pos2: The two corner points of the zone cuboid.
+#
+#   CYLINDER fields:
+#     center: The block at the center of the cylinder.
+#     radius: Horizontal radius in blocks.
+#     min-y / max-y: Vertical bounds of the cylinder.
+#
+#   BLOCKS fields:
+#     blocks: A list of "x,y,z" block coordinates. Players standing on or
+#             inside any of these blocks are considered to be in the zone.
 #
 #   interval: The time in seconds for the global teleport timer.
 #

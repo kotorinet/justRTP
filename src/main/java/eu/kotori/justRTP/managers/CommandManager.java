@@ -19,10 +19,12 @@ public class CommandManager {
     private final JustRTP plugin;
     private FileConfiguration cmdConfig;
     private final NamespacedKey wandKey;
+    private final NamespacedKey wandTypeKey;
 
     public CommandManager(JustRTP plugin) {
         this.plugin = plugin;
         this.wandKey = new NamespacedKey(plugin, "rtp_zone_wand");
+        this.wandTypeKey = new NamespacedKey(plugin, "rtp_zone_wand_type");
         loadCommandConfig();
     }
 
@@ -108,5 +110,9 @@ public class CommandManager {
 
     public NamespacedKey getWandKey() {
         return wandKey;
+    }
+
+    public NamespacedKey getWandTypeKey() {
+        return wandTypeKey;
     }
 }

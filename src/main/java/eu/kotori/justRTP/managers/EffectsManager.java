@@ -117,16 +117,28 @@ public class EffectsManager {
         }
     }
 
+    private TagResolver buildLocationPlaceholders(Player player) {
+        Location loc = player.getLocation();
+        return TagResolver.builder()
+                .resolver(Placeholder.unparsed("player", player.getName()))
+                .resolver(Placeholder.unparsed("x", String.valueOf(loc.getBlockX())))
+                .resolver(Placeholder.unparsed("y", String.valueOf(loc.getBlockY())))
+                .resolver(Placeholder.unparsed("z", String.valueOf(loc.getBlockZ())))
+                .resolver(Placeholder.unparsed("world", loc.getWorld() != null ? loc.getWorld().getName() : ""))
+                .build();
+    }
+
     private void applyTitle(Player player, ConfigurationSection cs) {
         if (cs == null || !cs.getBoolean("enabled", false))
             return;
         String mainTitleStr = cs.getString("main_title", "");
         String subtitleStr = cs.getString("subtitle", "");
-        if (mainTitleStr.isBlank() && subtitleStr.isBlank())
-            return;
+        if (mainTitleStr == null) mainTitleStr = "";
+        if (subtitleStr == null) subtitleStr = "";
 
-        Component mainTitle = mm.deserialize(mainTitleStr);
-        Component subtitle = mm.deserialize(subtitleStr);
+        TagResolver placeholders = buildLocationPlaceholders(player);
+        Component mainTitle = mm.deserialize(mainTitleStr, placeholders);
+        Component subtitle = mm.deserialize(subtitleStr, placeholders);
         long fadeIn = cs.getLong("fade_in", 10);
         long stay = cs.getLong("stay", 40);
         long fadeOut = cs.getLong("fade_out", 10);
@@ -140,9 +152,8 @@ public class EffectsManager {
         if (cs == null || !cs.getBoolean("enabled", false))
             return;
         String text = cs.getString("text", "");
-        if (text.isBlank())
-            return;
-        player.sendActionBar(mm.deserialize(text));
+        if (text == null) text = "";
+        player.sendActionBar(mm.deserialize(text, buildLocationPlaceholders(player)));
     }
 
     private void applyBossBar(Player player, ConfigurationSection cs) {
@@ -173,17 +184,15 @@ public class EffectsManager {
         if (messages.isEmpty())
             return;
 
-        Location loc = player.getLocation();
-        TagResolver placeholders = TagResolver.builder()
-                .resolver(Placeholder.unparsed("player", player.getName()))
-                .resolver(Placeholder.unparsed("x", String.valueOf(loc.getBlockX())))
-                .resolver(Placeholder.unparsed("y", String.valueOf(loc.getBlockY())))
-                .resolver(Placeholder.unparsed("z", String.valueOf(loc.getBlockZ())))
-                .resolver(Placeholder.unparsed("world", loc.getWorld().getName()))
-                .build();
+        TagResolver placeholders = buildLocationPlaceholders(player);
 
         for (String message : messages) {
-            if (message.isBlank()) {
+            if (message == null) {
+                player.sendMessage(Component.empty());
+                continue;
+            }
+            if (message.isEmpty()) {
+                player.sendMessage(Component.empty());
                 continue;
             }
             player.sendMessage(mm.deserialize(message, placeholders));

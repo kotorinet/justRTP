@@ -1,14 +1,34 @@
 # ----------------------------------------------------------------
-# JustRTP Configuration - Version 3.5.0
+# JustRTP Configuration - Version 3.5.5
 # ----------------------------------------------------------------
+# Changelog 3.5.5 (June 14, 2026):
+# - NEW: AxoHologram support, auto-detected like FancyHolograms
+#        (force it in holograms.yml with preferred-engine: axohologram)
+# - NEW: /rtp dashboard, an admin control panel to enable, disable and
+#        tune every module live (permission: justrtp.command.dashboard)
+# - NEW: Startup console panel listing every module and its on/off state
+# - INFO: The dashboard edits this file in place and keeps your comments
+# Changelog 3.5.2 (May 1, 2026):
+# - FIXED: Nether RTP failing with "UNKNOWN: 50" (CAVE_AIR / VOID_AIR not matched)
+# - FIXED: Empty lines in chat_message lore lists were skipped, now render
+# - FIXED: <x>, <y>, <z>, <world>, <player> placeholders in title and action_bar
+# - FIXED: PlaceholderAPI placeholders now expanded in RTP GUI items
+# - FIXED: Close button can be removed cleanly from rtp_gui config
+# Changelog 3.5.1 (April 24, 2026):
+# - NEW: Cylinder RTP zones (/rtpzone setup <id> cylinder)
+# - NEW: Block-selection RTP zones (/rtpzone setup <id> blocks)
+# - NEW: Zone particle system (/rtpzone particles <id> <style>)
+# - NEW: /rtpzone done subcommand to finish block selection
+# - FIXED: respawn_rtp not working on Folia
+# - FIXED: Holograms not appearing after restart/rejoin/world change
 # Changelog 3.5.0 (April 16, 2026):
-# - NEW: VOID world type support for skyblock/oneblock/void arenas
-# - NEW: void_world.spawn_y config option for void world spawn height
-# - FIXED: Inventory drag exploit affecting other plugin GUIs
+# - NEW: VOID world type support
+# - NEW: void_world.spawn_y option
+# - FIXED: Inventory drag exploit
 # - FIXED: Folia threading violation in onPlayerDropItem
 # - FIXED: ClassNotFoundException for Pl3xMap on servers without it
 # ----------------------------------------------------------------
-config-version: 32
+config-version: 33
 # ----------------------------------------------------------------
 
 settings:
@@ -146,6 +166,22 @@ void_world:
 location_cache:
   # Enable the cache for instant teleports.
   enabled: true
+  # Number of safe locations to keep ready per world.
+  cache_size: 8
+  # How often (seconds) to top up partially-empty caches.
+  refill_interval_seconds: 10
+  # Ticks to wait between successive cache fills for the same world.
+  fill_throttle_ticks: 20
+  # If a world fails to find a safe location this many cycles in a row, the
+  # background cache for that world is disabled until the next /rtp reload.
+  fail_world_disable_after_attempts: 3
+  # If true, the cache only refills a world after at least one cached location
+  # has been consumed. Prevents the cache from doing background work when no
+  # players have actually used /rtp yet.
+  refill_only_after_use: true
+  # Maximum number of worlds the cache will fill in parallel. Lower this if
+  # your server has many worlds and chunk generation is competing for CPU.
+  max_parallel_world_fills: 1
   # --- Whitelist of Worlds to Cache ---
   # Only worlds listed here will have a location cache.
   # The names MUST EXACTLY match your world folder names.
@@ -176,6 +212,10 @@ location_cache:
       generate_chunks: true
     world_nether:
       generate_chunks: true
+    world_the_end:
+      # Keep this off. The End is sparse and unexplored chunks are expensive to
+      # generate; enabling this makes the background cache hammer chunk gen.
+      generate_chunks: false
     # Example custom worlds (uncomment and add your worlds here):
     # plains:
     #   generate_chunks: true
@@ -312,6 +352,31 @@ performance:
   # How many players to teleport at once from the queue each time it is processed.
   # Increasing this can significantly speed up teleports on busy servers.
   queue_batch_size: 5
+
+# Smooth teleport transition. Pre-loads destination chunks before the teleport
+# fires and applies short blindness + slow-falling + resistance so players never
+# see void or fall before terrain renders.
+smooth_transition:
+  enabled: true
+  # Radius in chunks around the destination to pre-load (1 = 3x3, 2 = 5x5).
+  chunk_preload_radius: 1
+  # If true, the pre-load will trigger chunk generation for unloaded destinations.
+  # Off by default - the actual teleport still loads/generates the destination chunk.
+  generate_chunks: false
+  # Tick durations of the cover effects. 20 ticks = 1 second.
+  blindness_ticks: 30
+  slow_falling_ticks: 60
+  resistance_ticks: 40
+
+# Default countdown title shown to players inside any RTP zone whose own
+# effects.waiting.title is missing or disabled. Per-zone effects override this.
+zone_title:
+  enabled: false
+  main_title: "<gradient:#FFD700:#FFA500><bold>RTP</bold></gradient>"
+  subtitle: "<gray>Teleporting in <yellow><time></yellow></gray>"
+  fade_in: 0
+  stay: 25
+  fade_out: 5
 
 # --- RTP Matchmaking Queue (PvP Duels) ---
 # Players can queue up and teleport together to the same location
@@ -485,7 +550,7 @@ effects:
     #   <time> or <elapsed> - seconds elapsed
     #   <remaining> or <countdown> - seconds remaining
     #   <total> - total timeout seconds
-    text: "<gray>Searching on <gradient:#20B2AA:#7FFFD4><server></gradient>... <dark_gray>| <gray>Time: <white><countdown>s</white>"
+    text: "<gray>Searching on <gradient:#20B2AA:#7FFFD4><server></gradient>... <dark_gray>| <gray>Time: <white><countdown></white>"
 
   # --- Warmup / Delay Feedback ---
   # Actionbar shown EVERY SECOND while the player is standing still awaiting teleportation.

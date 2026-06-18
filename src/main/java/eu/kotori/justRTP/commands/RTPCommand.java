@@ -105,6 +105,9 @@ public class RTPCommand implements CommandExecutor {
                 case "spectator":
                     handleSpectator(sender);
                     return true;
+                case "dashboard":
+                    handleDashboard(sender);
+                    return true;
                 case "queue":
                 case "matchmaking":
                     handleMatchmaking(sender, args);
@@ -271,12 +274,6 @@ public class RTPCommand implements CommandExecutor {
                 }
             }
 
-            if (!consumed && targetServer == null && availableServers.stream().anyMatch(s -> s.equalsIgnoreCase(arg))) {
-                targetServer = arg;
-                proxyTargetWorld = "world";
-                consumed = true;
-            }
-
             if (!consumed && targetWorld == null) {
                 String resolvedWorldName = plugin.getConfigManager().resolveWorldAlias(arg);
                 World w = Bukkit.getWorld(resolvedWorldName);
@@ -285,6 +282,12 @@ public class RTPCommand implements CommandExecutor {
                     isExplicitWorld = true;
                     consumed = true;
                 }
+            }
+
+            if (!consumed && targetServer == null && availableServers.stream().anyMatch(s -> s.equalsIgnoreCase(arg))) {
+                targetServer = arg;
+                proxyTargetWorld = "world";
+                consumed = true;
             }
 
             if (!consumed) {
@@ -985,24 +988,22 @@ public class RTPCommand implements CommandExecutor {
                 .thenAccept(locationOpt -> {
                     if (locationOpt.isPresent()) {
                         Location safeLoc = locationOpt.get();
-                        plugin.getFoliaScheduler().runAtEntity(player, () -> {
-                            player.teleportAsync(safeLoc).thenAccept(success -> {
-                                if (!success) return;
-                                plugin.getFoliaScheduler().runAtEntity(player, () -> {
-                                    plugin.getLocaleManager().sendMessage(player, "nearplayer.success",
-                                            Placeholder.unparsed("world", targetWorld.getName()));
+                        player.teleportAsync(safeLoc).thenAccept(success -> {
+                            if (!success) return;
+                            plugin.getFoliaScheduler().runAtEntity(player, () -> {
+                                plugin.getLocaleManager().sendMessage(player, "nearplayer.success",
+                                        Placeholder.unparsed("world", targetWorld.getName()));
 
-                                    boolean silent = plugin.getConfig().getBoolean("nearplayer.silent", false);
-                                    if (!silent && target.isOnline()) {
-                                        plugin.getLocaleManager().sendMessage(target, "nearplayer.notify_target",
-                                                Placeholder.unparsed("player", player.getName()));
-                                    }
+                                boolean silent = plugin.getConfig().getBoolean("nearplayer.silent", false);
+                                if (!silent && target.isOnline()) {
+                                    plugin.getLocaleManager().sendMessage(target, "nearplayer.notify_target",
+                                            Placeholder.unparsed("player", player.getName()));
+                                }
 
-                                    plugin.getRTPLogger().debug("NEARPLAYER",
-                                            "Successfully teleported " + player.getName() + " near " + target.getName()
-                                                    + " to " + safeLoc.getBlockX() + ", " + safeLoc.getBlockY() + ", "
-                                                    + safeLoc.getBlockZ());
-                                });
+                                plugin.getRTPLogger().debug("NEARPLAYER",
+                                        "Successfully teleported " + player.getName() + " near " + target.getName()
+                                                + " to " + safeLoc.getBlockX() + ", " + safeLoc.getBlockY() + ", "
+                                                + safeLoc.getBlockZ());
                             });
                         });
                     } else {
@@ -1040,6 +1041,20 @@ public class RTPCommand implements CommandExecutor {
         }
 
         plugin.getSpectatorSwitchManager().openSpectatorSwitch(player);
+    }
+
+    private void handleDashboard(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            plugin.getLocaleManager().sendMessage(sender, "command.player_only");
+            return;
+        }
+
+        if (!player.hasPermission("justrtp.command.dashboard") && !player.hasPermission("justrtp.admin")) {
+            plugin.getLocaleManager().sendMessage(sender, "command.no_permission");
+            return;
+        }
+
+        plugin.getDashboardManager().open(player);
     }
 
     private void handleNearClaim(CommandSender sender) {
@@ -1083,17 +1098,68 @@ public class RTPCommand implements CommandExecutor {
                 plugin.getMatchmakingManager().joinQueue(player, world, Optional.empty(), Optional.empty());
             }
             case "leave" -> plugin.getMatchmakingManager().leaveQueue(player);
-            case "status" -> {
-                World world = player.getWorld();
-                int queueSize = plugin.getMatchmakingManager().getQueueSize(world);
-                boolean inQueue = plugin.getMatchmakingManager().isInQueue(player);
-                plugin.getLocaleManager().sendMessage(sender, "matchmaking.status",
-                        Placeholder.unparsed("world", world.getName()),
-                        Placeholder.unparsed("queue_size", String.valueOf(queueSize)),
-                        Placeholder.unparsed("in_queue", inQueue ? "Yes" : "No"));
-            }
+            case "status" -> sendMatchmakingStatus(player);
             default -> plugin.getLocaleManager().sendMessage(sender, "matchmaking.usage");
         }
+    }
+
+    private void sendMatchmakingStatus(Player player) {
+        World world = player.getWorld();
+        var manager = plugin.getMatchmakingManager();
+        int queueSize = manager.getQueueSize(world);
+        int teamSize = manager.getTeamSize();
+        boolean inQueue = manager.isInQueue(player);
+
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_header");
+
+        if (!manager.isEnabled()) {
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_disabled");
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_footer");
+            return;
+        }
+
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_world",
+                Placeholder.unparsed("world", world.getName()));
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_queue",
+                Placeholder.unparsed("queue_size", String.valueOf(queueSize)),
+                Placeholder.unparsed("team_size", String.valueOf(teamSize)));
+
+        if (inQueue) {
+            int position = manager.getQueuePosition(player, world);
+            long waited = manager.getWaitedSeconds(player);
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_in_queue",
+                    Placeholder.unparsed("position", String.valueOf(Math.max(1, position))));
+            if (waited >= 0) {
+                plugin.getLocaleManager().sendMessage(player, "matchmaking.status_waited",
+                        Placeholder.unparsed("waited", TimeUtils.formatDuration((int) waited)));
+            }
+        } else {
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_not_in_queue");
+        }
+
+        if (queueSize >= teamSize) {
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_ready");
+        } else {
+            int needed = teamSize - queueSize;
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_eta_more",
+                    Placeholder.unparsed("needed", String.valueOf(needed)));
+        }
+
+        Map<World, Integer> others = manager.getActiveQueueSizes();
+        others.remove(world);
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_other_header");
+        if (others.isEmpty()) {
+            plugin.getLocaleManager().sendMessage(player, "matchmaking.status_other_none");
+        } else {
+            for (Map.Entry<World, Integer> entry : others.entrySet()) {
+                plugin.getLocaleManager().sendMessage(player, "matchmaking.status_other_entry",
+                        Placeholder.unparsed("other_world", entry.getKey().getName()),
+                        Placeholder.unparsed("other_size", String.valueOf(entry.getValue())),
+                        Placeholder.unparsed("team_size", String.valueOf(teamSize)));
+            }
+        }
+
+        plugin.getLocaleManager().sendMessage(player, "matchmaking.status_footer");
     }
 
     private void handleSendLocation(CommandSender sender, String[] args) {

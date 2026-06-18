@@ -6,7 +6,6 @@ import eu.kotori.justRTP.handlers.hooks.HookManager;
 import eu.kotori.justRTP.managers.ConfigManager;
 import eu.kotori.justRTP.utils.FoliaScheduler;
 import eu.kotori.justRTP.utils.SafetyValidator;
-import io.papermc.lib.PaperLib;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
@@ -172,6 +171,7 @@ public class RTPService {
 
         Location fromLocation = player.getLocation().clone();
         World targetWorld = location.getWorld();
+        boolean smoothTransition = plugin.getConfig().getBoolean("smooth_transition.enabled", true);
 
         plugin.getFoliaScheduler().runAtEntity(player, () -> {
             if (!player.isOnline()) {
@@ -182,48 +182,126 @@ public class RTPService {
             player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
             player.setFallDistance(0f);
 
-            PaperLib.teleportAsync(player, location).thenAccept(success -> {
-                if (success && player.isOnline()) {
-                    plugin.getFoliaScheduler().runAtEntity(player, () -> {
-                        if (!player.isOnline()) {
-                            resultFuture.complete(false);
-                            return;
-                        }
+            if (smoothTransition) {
+                applySmoothTransitionEffects(player);
+            }
 
-                        player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
-                        player.setFallDistance(0f);
+            CompletableFuture<Void> chunkPreload = smoothTransition
+                    ? preloadDestinationChunks(targetWorld, location)
+                    : CompletableFuture.completedFuture(null);
 
-                        if (FoliaScheduler.isFolia()) {
-                            plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
-                                if (player.isOnline()) {
-                                    refreshPlayerChunks(player, location);
-                                }
-                            }, 5L);
-                        }
-
-                        plugin.getEffectsManager().applyPostTeleportEffects(player);
-
-                        PlayerPostRTPEvent postEvent = new PlayerPostRTPEvent(
-                                player,
-                                fromLocation,
-                                location,
-                                targetWorld,
-                                minRadius,
-                                maxRadius,
-                                cost,
-                                isCrossServer,
-                                targetServer);
-                        Bukkit.getPluginManager().callEvent(postEvent);
-
-                        resultFuture.complete(true);
-                    });
-                } else {
+            chunkPreload.whenComplete((v, err) -> {
+                if (!player.isOnline()) {
                     resultFuture.complete(false);
+                    return;
                 }
+                plugin.getFoliaScheduler().runAtEntity(player, () -> doTeleportAndFinish(
+                        player, location, fromLocation, targetWorld,
+                        minRadius, maxRadius, cost, isCrossServer, targetServer,
+                        smoothTransition, resultFuture));
             });
         });
 
         return resultFuture;
+    }
+
+    private void doTeleportAndFinish(Player player, Location location, Location fromLocation,
+                                     World targetWorld, Integer minRadius, Integer maxRadius,
+                                     double cost, boolean isCrossServer, String targetServer,
+                                     boolean smoothTransition,
+                                     CompletableFuture<Boolean> resultFuture) {
+        if (!player.isOnline()) {
+            resultFuture.complete(false);
+            return;
+        }
+        player.teleportAsync(location).thenAccept(success -> {
+            if (success && player.isOnline()) {
+                plugin.getFoliaScheduler().runAtEntity(player, () -> {
+                    if (!player.isOnline()) {
+                        resultFuture.complete(false);
+                        return;
+                    }
+
+                    player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+                    player.setFallDistance(0f);
+
+                    if (FoliaScheduler.isFolia()) {
+                        plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
+                            if (player.isOnline()) {
+                                refreshPlayerChunks(player, location);
+                            }
+                        }, 5L);
+                    }
+
+                    if (smoothTransition) {
+                        plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
+                            if (player.isOnline()) {
+                                clearSmoothTransitionEffects(player);
+                            }
+                        }, 10L);
+                    }
+
+                    plugin.getEffectsManager().applyPostTeleportEffects(player);
+
+                    PlayerPostRTPEvent postEvent = new PlayerPostRTPEvent(
+                            player, fromLocation, location, targetWorld,
+                            minRadius, maxRadius, cost, isCrossServer, targetServer);
+                    Bukkit.getPluginManager().callEvent(postEvent);
+
+                    resultFuture.complete(true);
+                });
+            } else {
+                if (player.isOnline()) {
+                    plugin.getFoliaScheduler().runAtEntity(player, () -> clearSmoothTransitionEffects(player));
+                }
+                resultFuture.complete(false);
+            }
+        });
+    }
+
+    private CompletableFuture<Void> preloadDestinationChunks(World world, Location location) {
+        if (world == null) return CompletableFuture.completedFuture(null);
+        int cx = location.getBlockX() >> 4;
+        int cz = location.getBlockZ() >> 4;
+        int radius = Math.max(1, plugin.getConfig().getInt("smooth_transition.chunk_preload_radius", 1));
+        boolean generate = plugin.getConfig().getBoolean("smooth_transition.generate_chunks", false);
+        List<CompletableFuture<?>> futures = new ArrayList<>();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                futures.add(world.getChunkAtAsync(cx + dx, cz + dz, generate));
+            }
+        }
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+    }
+
+    private void applySmoothTransitionEffects(Player player) {
+        ConfigurationSection cs = plugin.getConfig().getConfigurationSection("smooth_transition");
+        int blindnessTicks = cs != null ? cs.getInt("blindness_ticks", 30) : 30;
+        int slowFallingTicks = cs != null ? cs.getInt("slow_falling_ticks", 60) : 60;
+        int resistanceTicks = cs != null ? cs.getInt("resistance_ticks", 40) : 40;
+
+        try {
+            if (blindnessTicks > 0) {
+                player.addPotionEffect(new org.bukkit.potion.PotionEffect(
+                        org.bukkit.potion.PotionEffectType.BLINDNESS, blindnessTicks, 0, false, false, false));
+            }
+            if (slowFallingTicks > 0) {
+                player.addPotionEffect(new org.bukkit.potion.PotionEffect(
+                        org.bukkit.potion.PotionEffectType.SLOW_FALLING, slowFallingTicks, 0, false, false, false));
+            }
+            if (resistanceTicks > 0) {
+                player.addPotionEffect(new org.bukkit.potion.PotionEffect(
+                        org.bukkit.potion.PotionEffectType.RESISTANCE, resistanceTicks, 4, false, false, false));
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void clearSmoothTransitionEffects(Player player) {
+        try {
+            player.removePotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS);
+        } catch (Throwable ignored) {
+        }
     }
 
     private void refreshPlayerChunks(Player player, Location location) {
@@ -238,7 +316,7 @@ public class RTPService {
             for (int dz = -1; dz <= 1; dz++) {
                 int chunkX = centerChunkX + dx;
                 int chunkZ = centerChunkZ + dz;
-                PaperLib.getChunkAtAsync(world, chunkX, chunkZ, false);
+                world.getChunkAtAsync(chunkX, chunkZ, false);
             }
         }
     }
@@ -406,7 +484,7 @@ public class RTPService {
         int chunkX = x >> 4;
         int chunkZ = z >> 4;
 
-        return PaperLib.getChunkAtAsync(world, chunkX, chunkZ, generateChunks).thenCompose(chunk -> {
+        return world.getChunkAtAsync(chunkX, chunkZ, generateChunks).thenCompose(chunk -> {
             if (chunk == null) {
                 plugin.getRTPLogger().debug("CHUNK",
                         "Failed to load chunk at " + chunkX + ", " + chunkZ + " in " + world.getName()
@@ -429,7 +507,7 @@ public class RTPService {
                 List<CompletableFuture<Chunk>> neighborFutures = new ArrayList<>();
                 for (int dx = -1; dx <= 1; dx++) {
                     for (int dz = -1; dz <= 1; dz++) {
-                        neighborFutures.add(PaperLib.getChunkAtAsync(world, chunkX + dx, chunkZ + dz, true));
+                        neighborFutures.add(world.getChunkAtAsync(chunkX + dx, chunkZ + dz, true));
                     }
                 }
 
@@ -599,6 +677,9 @@ public class RTPService {
         }
 
         CompletableFuture<Optional<Location>> future = new CompletableFuture<>();
+        long delay = generateChunks
+                ? Math.max(1L, plugin.getConfig().getLong("location_cache.attempt_delay_ticks_generate", 4L))
+                : Math.max(1L, plugin.getConfig().getLong("location_cache.attempt_delay_ticks", 1L));
         plugin.getFoliaScheduler().runLater(() -> {
             findLocationRecursive(player, world, attemptsLeft, minRadius, maxRadius, generateChunks, summary,
                     customCenterX, customCenterZ, useCustomCenter)
@@ -607,7 +688,7 @@ public class RTPService {
                         future.completeExceptionally(ex);
                         return null;
                     });
-        }, 1L);
+        }, delay);
 
         return future;
 
@@ -731,8 +812,8 @@ public class RTPService {
             Block feetBlock = chunk.getBlock(x & 15, y, z & 15);
             Block headBlock = chunk.getBlock(x & 15, y + 1, z & 15);
 
-            if (groundBlock.getType().isSolid() && feetBlock.getType() == Material.AIR
-                    && headBlock.getType() == Material.AIR) {
+            if (groundBlock.getType().isSolid() && feetBlock.getType().isAir()
+                    && headBlock.getType().isAir()) {
                 Location loc = groundBlock.getLocation();
                 Optional<FailureReason> safetyCheck = isSafe(loc, summary);
                 if (safetyCheck.isEmpty()) {

@@ -2,6 +2,8 @@ package eu.kotori.justRTP.commands;
 
 import eu.kotori.justRTP.JustRTP;
 import eu.kotori.justRTP.utils.RTPZone;
+import eu.kotori.justRTP.utils.ZoneParticleStyle;
+import eu.kotori.justRTP.utils.ZoneShape;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -61,7 +63,22 @@ public class RTPZoneCommand implements CommandExecutor {
                     plugin.getLocaleManager().sendMessage(player, "zone.command.setup_usage");
                     return true;
                 }
-                plugin.getZoneSetupManager().startSetup(player, args[1]);
+                ZoneShape shape = ZoneShape.CUBOID;
+                if (args.length >= 3) {
+                    try {
+                        shape = ZoneShape.valueOf(args[2].toUpperCase());
+                    } catch (IllegalArgumentException e) {
+                        plugin.getLocaleManager().sendMessage(player, "zone.command.setup_usage");
+                        return true;
+                    }
+                }
+                plugin.getZoneSetupManager().startSetup(player, args[1], shape);
+                break;
+            case "done":
+                plugin.getZoneSetupManager().finishBlockSelection(player);
+                break;
+            case "particles":
+                handleParticles(player, args);
                 break;
             case "delete":
                 if (args.length < 2) {
@@ -110,6 +127,37 @@ public class RTPZoneCommand implements CommandExecutor {
                 break;
         }
         return true;
+    }
+
+    private void handleParticles(Player player, String[] args) {
+        if (args.length < 3) {
+            plugin.getLocaleManager().sendMessage(player, "zone.command.particles_usage");
+            return;
+        }
+        String zoneId = args[1];
+        String styleArg = args[2];
+        RTPZone zone = plugin.getRtpZoneManager().getZone(zoneId);
+        if (zone == null) {
+            plugin.getLocaleManager().sendMessage(player, "zone.error.not_found", Placeholder.unparsed("id", zoneId));
+            return;
+        }
+        ZoneParticleStyle style;
+        try {
+            style = ZoneParticleStyle.valueOf(styleArg.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            plugin.getLocaleManager().sendMessage(player, "zone.command.particles_invalid_style",
+                    Placeholder.unparsed("style", styleArg));
+            return;
+        }
+        zone.setParticleStyle(style);
+        plugin.getRtpZoneManager().saveZone(zone);
+        if (plugin.getZoneParticleManager() != null) {
+            plugin.getZoneParticleManager().stopZoneRendering(zoneId);
+            plugin.getZoneParticleManager().startZoneRendering(zone);
+        }
+        plugin.getLocaleManager().sendMessage(player, "zone.command.particles_set",
+                Placeholder.unparsed("id", zoneId),
+                Placeholder.unparsed("style", style.name()));
     }
 
     private void handleSetHologram(Player player, String[] args) {

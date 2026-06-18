@@ -69,6 +69,9 @@ public class RTPZoneManager {
                 RTPZone zone = new RTPZone(zoneId, zonesSection.getConfigurationSection(zoneId));
                 zones.put(zoneId.toLowerCase(), zone);
                 startZoneScheduler(zone);
+                if (plugin.getZoneParticleManager() != null) {
+                    plugin.getZoneParticleManager().startZoneRendering(zone);
+                }
             } catch (IllegalArgumentException e) {
                 plugin.getLogger().warning("Failed to load RTP Zone '" + zoneId + "': " + e.getMessage());
             }
@@ -532,7 +535,7 @@ public class RTPZoneManager {
     }
 
     private CompletableFuture<Location> findSafeYAtLocationAsync(World world, int x, int z) {
-        return io.papermc.lib.PaperLib.getChunkAtAsync(world, x >> 4, z >> 4).thenApply(chunk -> {
+        return world.getChunkAtAsync(x >> 4, z >> 4, false).thenApply(chunk -> {
             if (chunk == null)
                 return null;
 
@@ -653,11 +656,12 @@ public class RTPZoneManager {
 
     private void updateWaitingEffects(Player player, RTPZone zone, int timeRemaining) {
         ConfigurationSection waitingEffects = getZoneEffects(zone, "waiting");
-        if (waitingEffects == null)
-            return;
 
         if (timeRemaining > 0) {
-            ConfigurationSection titleSection = waitingEffects.getConfigurationSection("title");
+            boolean shownZoneTitle = false;
+            ConfigurationSection titleSection = waitingEffects != null
+                    ? waitingEffects.getConfigurationSection("title")
+                    : null;
             if (titleSection != null && titleSection.getBoolean("enabled", false)) {
                 String titleText = titleSection.getString("main_title", "");
                 String subtitleText = titleSection.getString("subtitle", "");
@@ -669,7 +673,32 @@ public class RTPZoneManager {
                     Title.Times times = Title.Times.times(Duration.ofMillis(fadeIn * 50), Duration.ofMillis(stay * 50),
                             Duration.ofMillis(fadeOut * 50));
                     Title title = Title.title(
-                            MiniMessage.miniMessage().deserialize(titleText),
+                            MiniMessage.miniMessage().deserialize(titleText,
+                                    Placeholder.unparsed("time",
+                                            eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),
+                            MiniMessage.miniMessage().deserialize(subtitleText,
+                                    Placeholder.unparsed("time",
+                                            eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),
+                            times);
+                    player.showTitle(title);
+                    shownZoneTitle = true;
+                }
+            }
+
+            if (!shownZoneTitle && plugin.getConfig().getBoolean("zone_title.enabled", false)) {
+                String titleText = plugin.getConfig().getString("zone_title.main_title", "");
+                String subtitleText = plugin.getConfig().getString("zone_title.subtitle", "");
+                if (!titleText.isBlank() || !subtitleText.isBlank()) {
+                    long fadeIn = plugin.getConfig().getLong("zone_title.fade_in", 0);
+                    long stay = plugin.getConfig().getLong("zone_title.stay", 25);
+                    long fadeOut = plugin.getConfig().getLong("zone_title.fade_out", 5);
+
+                    Title.Times times = Title.Times.times(Duration.ofMillis(fadeIn * 50), Duration.ofMillis(stay * 50),
+                            Duration.ofMillis(fadeOut * 50));
+                    Title title = Title.title(
+                            MiniMessage.miniMessage().deserialize(titleText,
+                                    Placeholder.unparsed("time",
+                                            eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),
                             MiniMessage.miniMessage().deserialize(subtitleText,
                                     Placeholder.unparsed("time",
                                             eu.kotori.justRTP.utils.TimeUtils.formatDuration(timeRemaining))),
@@ -677,6 +706,10 @@ public class RTPZoneManager {
                     player.showTitle(title);
                 }
             }
+        }
+
+        if (waitingEffects == null) {
+            return;
         }
 
         ConfigurationSection actionBarSection = waitingEffects.getConfigurationSection("action_bar");
@@ -954,6 +987,9 @@ public class RTPZoneManager {
         if (plugin.getHologramManager() != null) {
             plugin.getHologramManager().cleanupAllHolograms();
         }
+        if (plugin.getZoneParticleManager() != null) {
+            plugin.getZoneParticleManager().stopAll();
+        }
     }
 
     public void toggleIgnore(Player player) {
@@ -1003,6 +1039,10 @@ public class RTPZoneManager {
 
         startZoneScheduler(zone);
 
+        if (plugin.getZoneParticleManager() != null) {
+            plugin.getZoneParticleManager().startZoneRendering(zone);
+        }
+
         plugin.getRTPLogger().debug("ZONE", "Zone fully initialized with hologram and scheduler: " + zone.getId());
 
     }
@@ -1044,6 +1084,9 @@ public class RTPZoneManager {
 
         plugin.getRTPLogger().debug("ZONE", "Starting zone deletion process for: " + zoneId);
 
+        if (plugin.getZoneParticleManager() != null) {
+            plugin.getZoneParticleManager().stopZoneRendering(zoneId);
+        }
         CancellableTask task = activeZoneTasks.remove(lowerId);
         if (task != null) {
             task.cancel();

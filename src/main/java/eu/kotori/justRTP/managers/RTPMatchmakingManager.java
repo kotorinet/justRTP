@@ -1,6 +1,7 @@
 package eu.kotori.justRTP.managers;
 
 import eu.kotori.justRTP.JustRTP;
+import eu.kotori.justRTP.utils.task.CancellableTask;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -18,9 +19,22 @@ public class RTPMatchmakingManager {
     private final JustRTP plugin;
     private final Map<World, List<MatchmakingRequest>> worldQueues = new ConcurrentHashMap<>();
     private final Map<UUID, Long> queueTimestamps = new ConcurrentHashMap<>();
+    private CancellableTask tickerTask;
 
     public RTPMatchmakingManager(JustRTP plugin) {
         this.plugin = plugin;
+        startMatchmakingTicker();
+    }
+
+    public void stop() {
+        if (tickerTask != null && !tickerTask.isCancelled()) {
+            tickerTask.cancel();
+        }
+        tickerTask = null;
+    }
+
+    public void restart() {
+        stop();
         startMatchmakingTicker();
     }
 
@@ -90,14 +104,47 @@ public class RTPMatchmakingManager {
         return queue != null ? queue.size() : 0;
     }
 
+    public int getQueuePosition(Player player, World world) {
+        List<MatchmakingRequest> queue = worldQueues.get(world);
+        if (queue == null) return -1;
+        UUID uuid = player.getUniqueId();
+        synchronized (queue) {
+            for (int i = 0; i < queue.size(); i++) {
+                if (queue.get(i).player().getUniqueId().equals(uuid)) {
+                    return i + 1;
+                }
+            }
+        }
+        return -1;
+    }
+
+    public long getWaitedSeconds(Player player) {
+        Long ts = queueTimestamps.get(player.getUniqueId());
+        if (ts == null) return -1;
+        return Math.max(0, (System.currentTimeMillis() - ts) / 1000L);
+    }
+
+    public int getTeamSize() {
+        return Math.max(2, plugin.getConfig().getInt("matchmaking.team_size", 2));
+    }
+
+    public Map<World, Integer> getActiveQueueSizes() {
+        Map<World, Integer> sizes = new LinkedHashMap<>();
+        for (Map.Entry<World, List<MatchmakingRequest>> entry : worldQueues.entrySet()) {
+            int size = entry.getValue().size();
+            if (size > 0) sizes.put(entry.getKey(), size);
+        }
+        return sizes;
+    }
+
     public boolean isEnabled() {
         return plugin.getConfig().getBoolean("matchmaking.enabled", true);
     }
 
     private void startMatchmakingTicker() {
-        int tickInterval = plugin.getConfig().getInt("matchmaking.tick_interval", 60);
+        int tickInterval = Math.max(1, plugin.getConfig().getInt("matchmaking.tick_interval", 60));
 
-        plugin.getFoliaScheduler().runTimer(() -> {
+        tickerTask = plugin.getFoliaScheduler().runTimer(() -> {
             if (!isEnabled()) return;
 
             for (Map.Entry<World, List<MatchmakingRequest>> entry : worldQueues.entrySet()) {
@@ -180,7 +227,6 @@ public class RTPMatchmakingManager {
                         Placeholder.unparsed("count", String.valueOf(match.size())));
             }
 
-            int safetyRadius = Math.max(1, plugin.getConfig().getInt("matchmaking.safety_search_radius", 5));
             for (int i = 0; i < match.size(); i++) {
                 MatchmakingRequest req = match.get(i);
                 Player player = req.player();
@@ -196,6 +242,7 @@ public class RTPMatchmakingManager {
 
                 Location playerLoc = location.clone().add(offsetX, 0, offsetZ);
 
+                int safetyRadius = Math.max(1, plugin.getConfig().getInt("matchmaking.safety_search_radius", 5));
                 plugin.getRtpService().findSafeLocation(player, world, 10,
                         Optional.of(0),
                         Optional.of(safetyRadius),
@@ -207,7 +254,7 @@ public class RTPMatchmakingManager {
                         return;
                     }
 
-                    Location finalLoc = safeLocOpt.orElse(playerLoc);
+                    Location finalLoc = safeLocOpt.orElse(location);
 
                     plugin.getRtpService().teleportPlayer(
                             player,

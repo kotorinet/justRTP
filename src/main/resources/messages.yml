@@ -2,7 +2,7 @@
 # JustRTP Message Configuration
 # ----------------------------------------------------------------
 # CONFIG VERSION - DO NOT CHANGE THIS
-config-version: 19
+config-version: 21
 # ----------------------------------------------------------------
 # NOTE: The <time> placeholder is automatically formatted in human-readable format
 #       Examples: "5m 38s", "1h 2m", "30s"
@@ -90,6 +90,19 @@ matchmaking:
   teleport_failed: "%prefix% <red>Failed to teleport to match location. Please try again.</red>"
   usage: "%prefix% <red>Usage: /rtp queue <join|leave|status> [world]</red>"
   status: "%prefix% <gold>Matchmaking Status:</gold><newline><gray>World: <white><world></white><newline><gray>Queue Size: <yellow><queue_size></yellow><newline><gray>You in queue: <white><in_queue></white>"
+  status_header: "<dark_gray><strikethrough>                    </strikethrough> <gradient:#FFD700:#FFA500><bold>⚔ RTP MATCHMAKING ⚔</bold></gradient> <dark_gray><strikethrough>                    </strikethrough></dark_gray>"
+  status_world: " <gold>◆</gold> <gray>World:</gray> <white><world></white>"
+  status_queue: " <gold>◆</gold> <gray>Players in queue:</gray> <yellow><queue_size></yellow><dark_gray>/</dark_gray><yellow><team_size></yellow>"
+  status_in_queue: " <green>✔</green> <gray>You are in queue</gray> <dark_gray>(position</dark_gray> <white>#<position></white><dark_gray>)</dark_gray>"
+  status_not_in_queue: " <red>✘</red> <gray>You are not in queue</gray>"
+  status_waited: " <gold>◆</gold> <gray>Waiting time:</gray> <aqua><waited></aqua>"
+  status_eta_more: " <yellow>➜</yellow> <gray>Need <yellow><needed></yellow> more player(s) to start</gray>"
+  status_ready: " <green>✦</green> <green><bold>Match ready! Teleporting soon...</bold></green>"
+  status_other_header: " <gold>◆</gold> <gray>Other active queues:</gray>"
+  status_other_entry: "    <dark_gray>•</dark_gray> <white><other_world>:</white> <yellow><other_size></yellow><dark_gray>/</dark_gray><yellow><team_size></yellow>"
+  status_other_none: "    <dark_gray>(no other queues active)</dark_gray>"
+  status_disabled: " <red>✘</red> <gray>Matchmaking is currently <red>disabled</red> in config.</gray>"
+  status_footer: "<dark_gray><strikethrough>                                                                </strikethrough></dark_gray>"
 
 sendlocation:
   usage: "%prefix% <red>Usage: /rtp sendlocation <x> <y> <z> <world> <player></red>"
@@ -100,9 +113,12 @@ sendlocation:
 
 zone:
   command:
-    usage: "%prefix% <red>Usage: /rtpzone <setup|delete|list|cancel|sethologram|delhologram|ignore|sync|push|pull|status></red>"
+    usage: "%prefix% <red>Usage: /rtpzone <setup|delete|list|cancel|done|sethologram|delhologram|ignore|sync|push|pull|status></red>"
     usage_limited: "%prefix% <red>Usage: /rtpzone ignore</red>"
-    setup_usage: "%prefix% <red>Usage: /rtpzone setup <zone_id></red>"
+    setup_usage: "%prefix% <red>Usage: /rtpzone setup <zone_id> [cuboid|cylinder|blocks]</red>"
+    particles_usage: "%prefix% <red>Usage: /rtpzone particles <zone_id> <none|outline|beam|swirl|pulse|dust_wall></red>"
+    particles_invalid_style: "%prefix% <red>✖ Unknown particle style:</red> <yellow><style></yellow>"
+    particles_set: "%prefix% <green>✓ Particles for zone</green> <gold><id></gold> <green>set to</green> <aqua><style></aqua>"
     delete_usage: "%prefix% <red>Usage: /rtpzone delete <zone_id></red>"
     sethologram_usage: "%prefix% <red>Usage: /rtpzone sethologram <zone_id> [y_offset]</red>"
     delhologram_usage: "%prefix% <red>Usage: /rtpzone delhologram <zone_id></red>"
@@ -117,7 +133,27 @@ zone:
     list_format: "<dark_gray> - <yellow><id></yellow> <gray>(Target: <target>)"
     list_empty: "%prefix% <gray>There are no RTP zones configured.</gray>"
   setup:
-    started: "%prefix% <green>Started setup for RTP Zone '<gold><id></gold>'!</green><newline><gray>|- You have been given the <yellow>Zone Wand<newline><gray>|- <white>Left-click: <yellow>Set Position 1<newline><gray>|- <white>Right-click: <yellow>Set Position 2<newline><gray>|- Type '<red>cancel<gray>' anytime to abort"
+    started: "%prefix% <green>Started setup for RTP Zone '<gold><id></gold>'</green> <gray>(shape: <aqua><shape></aqua>)</gray><newline><gray>|- You have been given the <yellow>Zone Wand<newline><gray>|- Follow the prompts in chat<newline><gray>|- Type '<red>cancel<gray>' anytime to abort"
+    cylinder:
+      center_prompt: "%prefix% <gradient:#20B2AA:#7FFFD4>▶</gradient> <white>Left-click a block to set the <aqua>cylinder center</aqua>"
+      center_set: "%prefix% <green>✓ Center:</green> <aqua><coords></aqua>"
+      center_required: "%prefix% <red>✖ Set the center first with a left-click!</red>"
+      radius_prompt: "%prefix% <gradient:#20B2AA:#7FFFD4>▶</gradient> <white>Right-click a block at the edge to set <aqua>radius</aqua>, or type a number in chat"
+      radius_set: "%prefix% <green>✓ Radius:</green> <aqua><radius> blocks</aqua>"
+      y_range_prompt: "%prefix% <gradient:#20B2AA:#7FFFD4>▶</gradient> <white>Enter <aqua>Y range</aqua> as <yellow>min max</yellow><gray>, or type <yellow>auto</yellow> for full world height<newline><gray>└─ Example: <yellow>60 120</yellow>"
+      y_range_set: "%prefix% <green>✓ Y range:</green> <aqua><min_y></aqua> <gray>→</gray> <aqua><max_y></aqua>"
+      y_range_invalid: "%prefix% <red>✖ Enter Y range as two numbers (min max) or 'auto'.</red>"
+    blocks:
+      add_prompt: "%prefix% <gradient:#FF6B35:#F7931E>▶</gradient> <white>Left-click blocks to <green>add</green>, right-click to <red>remove</red>, shift+left to <yellow>clear</yellow>. Type <green>done</green> when finished."
+      added: "%prefix% <green>✚ Added:</green> <gold><coords></gold> <dark_gray>(<count> blocks)</dark_gray>"
+      removed: "%prefix% <yellow>− Removed:</yellow> <gold><coords></gold> <dark_gray>(<count> blocks)</dark_gray>"
+      already_added: "%prefix% <yellow>Block at <coords> is already in the zone.</yellow>"
+      not_in_set: "%prefix% <yellow>Block at <coords> is not part of the zone.</yellow>"
+      cleared: "%prefix% <yellow>Cleared <count> blocks from selection.</yellow>"
+      empty: "%prefix% <red>✖ You must select at least one block before typing 'done'.</red>"
+      finished: "%prefix% <green>✓ Block selection complete:</green> <gold><count> blocks</gold>"
+      use_wand: "%prefix% <gray>Use the wand to select blocks, then type <green>done</green>.</gray>"
+      not_in_block_mode: "%prefix% <red>✖ 'done' only works during block-mode setup.</red>"
     cancelled: "%prefix% <yellow>RTP Zone setup cancelled.</yellow>"
     pos1_prompt: "%prefix% <gradient:#20B2AA:#7FFFD4>▶</gradient> <white>Left-click a block to set <gold>Position 1 <gray>(first corner)</gray>"
     pos2_prompt: "%prefix% <gradient:#20B2AA:#7FFFD4>▶</gradient> <white>Right-click a block to set <gold>Position 2 <gray>(second corner)</gray>"

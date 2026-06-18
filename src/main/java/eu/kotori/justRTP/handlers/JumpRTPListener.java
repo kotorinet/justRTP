@@ -28,11 +28,7 @@ public class JumpRTPListener implements Listener {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
 
-        if (!plugin.getConfigManager().isJumpRtpEnabled()) {
-            return;
-        }
-
-        if (!plugin.getConfigManager().getJumpRtpEnabledWorlds().contains(player.getWorld().getName())) {
+        if (!plugin.getConfigManager().isJumpRtpEnabledInWorld(player.getWorld().getName())) {
             return;
         }
 

@@ -147,7 +147,7 @@ public class PacketHologramManager implements Listener {
             return;
         }
 
-        io.papermc.lib.PaperLib.getChunkAtAsync(location).thenAccept(chunk -> {
+        location.getWorld().getChunkAtAsync(location.getBlockX() >> 4, location.getBlockZ() >> 4, false).thenAccept(chunk -> {
             plugin.getFoliaScheduler().runAtLocation(location, () -> {
                 try {
                     removeHologram(zoneId);
@@ -594,10 +594,30 @@ public class PacketHologramManager implements Listener {
 
     private void startParticleTask() {
         plugin.getFoliaScheduler().runTimer(() -> {
+            if (activeHolograms.isEmpty()) return;
             for (PacketHologram hologram : activeHolograms.values()) {
                 spawnParticlesForViewers(hologram);
             }
         }, 1L, 10L);
+        startVisibilitySweepTask();
+    }
+
+    private void startVisibilitySweepTask() {
+        plugin.getFoliaScheduler().runTimer(() -> {
+            if (!packetEventsAvailable) return;
+            if (activeHolograms.isEmpty()) return;
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player == null || !player.isOnline()) continue;
+                try {
+                    plugin.getFoliaScheduler().runAtEntity(player, () -> {
+                        if (player.isOnline()) {
+                            updateHologramVisibility(player);
+                        }
+                    });
+                } catch (Throwable ignored) {
+                }
+            }
+        }, 100L, 100L);
     }
 
     @EventHandler
@@ -607,23 +627,34 @@ public class PacketHologramManager implements Listener {
 
         Player player = event.getPlayer();
 
-        plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
-            if (!player.isOnline())
-                return;
+        scheduleJoinVisibilityRefresh(player, 20L);
+        scheduleJoinVisibilityRefresh(player, 60L);
+        scheduleJoinVisibilityRefresh(player, 120L);
+    }
 
+    private void scheduleJoinVisibilityRefresh(Player player, long delayTicks) {
+        plugin.getFoliaScheduler().runAtEntityLater(player, () -> {
+            if (!player.isOnline()) return;
             for (PacketHologram hologram : activeHolograms.values()) {
                 try {
-                    if (player.getWorld().equals(hologram.location.getWorld()) &&
-                            player.getLocation().distance(hologram.location) <= hologram.viewDistance) {
-                        showHologramToPlayer(hologram, player);
+                    if (!player.getWorld().equals(hologram.location.getWorld())) continue;
+                    double dx = player.getLocation().getX() - hologram.location.getX();
+                    double dy = player.getLocation().getY() - hologram.location.getY();
+                    double dz = player.getLocation().getZ() - hologram.location.getZ();
+                    double distSq = dx * dx + dy * dy + dz * dz;
+                    double vd = hologram.viewDistance;
+                    if (distSq <= vd * vd) {
+                        Set<String> visible = playerVisibleHolograms.get(player.getUniqueId());
+                        if (visible == null || !visible.contains(hologram.zoneId)) {
+                            showHologramToPlayer(hologram, player);
+                        }
                     }
                 } catch (Exception e) {
                     plugin.getRTPLogger().debug("HOLOGRAM",
-                            "Error showing hologram " + hologram.zoneId + " to joining player: " + e.getMessage());
-
+                            "Error showing hologram " + hologram.zoneId + " to player: " + e.getMessage());
                 }
             }
-        }, 20L);
+        }, delayTicks);
     }
 
     @EventHandler

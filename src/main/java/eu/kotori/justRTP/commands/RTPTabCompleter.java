@@ -42,6 +42,8 @@ public class RTPTabCompleter implements TabCompleter {
                 options.add("reload");
             if (sender.hasPermission("justrtp.admin"))
                 options.add("proxystatus");
+            if (sender.hasPermission("justrtp.command.dashboard") || sender.hasPermission("justrtp.admin"))
+                options.add("dashboard");
 
             boolean economyEnabled = plugin.getConfig().getBoolean("economy.enabled", false);
             if (economyEnabled && sender.hasPermission("justrtp.command.confirm")) {
@@ -93,6 +95,21 @@ public class RTPTabCompleter implements TabCompleter {
             }
         }
 
+        if (args.length == 2 && args[0].equalsIgnoreCase("nearplayer")) {
+            if (sender.hasPermission("justrtp.command.rtp.nearplayer")) {
+                Bukkit.getWorlds().stream()
+                        .filter(plugin.getRtpService()::isRtpEnabled)
+                        .map(World::getName)
+                        .forEach(options::add);
+            }
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("location")) {
+            if (sender instanceof Player player && sender.hasPermission("justrtp.command.rtp.location")) {
+                options.addAll(plugin.getCustomLocationManager().getAvailableLocationIds(player));
+            }
+        }
+
         if (args.length == 2
                 && (args[0].equalsIgnoreCase("queue") || args[0].equalsIgnoreCase("matchmaking"))
                 && sender.hasPermission("justrtp.command.rtp.matchmaking")) {
@@ -120,21 +137,6 @@ public class RTPTabCompleter implements TabCompleter {
             StringUtil.copyPartialMatches(currentArg, options, completions);
             Collections.sort(completions);
             return completions;
-        }
-
-        if (args.length == 2 && args[0].equalsIgnoreCase("nearplayer")) {
-            if (sender.hasPermission("justrtp.command.rtp.nearplayer")) {
-                Bukkit.getWorlds().stream()
-                        .filter(plugin.getRtpService()::isRtpEnabled)
-                        .map(World::getName)
-                        .forEach(options::add);
-            }
-        }
-
-        if (args.length == 2 && args[0].equalsIgnoreCase("location")) {
-            if (sender instanceof Player player && sender.hasPermission("justrtp.command.rtp.location")) {
-                options.addAll(plugin.getCustomLocationManager().getAvailableLocationIds(player));
-            }
         }
 
         boolean worldPermDenied = sender.isPermissionSet("justrtp.command.rtp.world")

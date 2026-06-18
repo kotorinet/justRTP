@@ -31,18 +31,28 @@ public class RTPZoneTabCompleter implements TabCompleter {
         if (args.length == 1) {
             List<String> subCommands = new ArrayList<>();
             if (sender.hasPermission("justrtp.admin.zone")) {
-                subCommands.addAll(Arrays.asList("setup", "delete", "list", "cancel", "sethologram", "delhologram",
-                        "sync", "push", "pull", "status"));
+                subCommands.addAll(Arrays.asList("setup", "delete", "list", "cancel", "done", "particles",
+                        "sethologram", "delhologram", "sync", "push", "pull", "status"));
             }
             if (sender.hasPermission("justrtp.command.zone.ignore")) {
                 subCommands.add("ignore");
             }
             StringUtil.copyPartialMatches(currentArg, subCommands, completions);
         } else if (args.length == 2 && (args[0].equalsIgnoreCase("delete") || args[0].equalsIgnoreCase("sethologram")
-                || args[0].equalsIgnoreCase("delhologram"))) {
+                || args[0].equalsIgnoreCase("delhologram") || args[0].equalsIgnoreCase("particles"))) {
             if (sender.hasPermission("justrtp.admin.zone")) {
                 List<String> zoneIds = new ArrayList<>(plugin.getRtpZoneManager().getZoneIds());
                 StringUtil.copyPartialMatches(currentArg, zoneIds, completions);
+            }
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("particles")) {
+            if (sender.hasPermission("justrtp.admin.zone")) {
+                StringUtil.copyPartialMatches(currentArg,
+                        Arrays.asList("none", "outline", "beam", "swirl", "pulse", "dust_wall"), completions);
+            }
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("setup")) {
+            if (sender.hasPermission("justrtp.admin.zone")) {
+                StringUtil.copyPartialMatches(currentArg,
+                        Arrays.asList("cuboid", "cylinder", "blocks"), completions);
             }
         }
 

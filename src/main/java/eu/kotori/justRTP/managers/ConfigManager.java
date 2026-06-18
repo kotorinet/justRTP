@@ -12,15 +12,27 @@ import java.util.*;
 public class ConfigManager {
     private final JustRTP plugin;
     private final Map<String, String> worldAliases = new HashMap<>();
+    private volatile boolean jumpRtpEnabledCached = false;
+    private volatile Set<String> jumpRtpEnabledWorldsCached = Collections.emptySet();
 
     public ConfigManager(JustRTP plugin) {
         this.plugin = plugin;
         loadWorldAliases();
+        loadJumpRtpCache();
     }
 
     public void reload() {
         plugin.reloadConfig();
         loadWorldAliases();
+        loadJumpRtpCache();
+    }
+
+    private void loadJumpRtpCache() {
+        jumpRtpEnabledCached = plugin.getConfig().getBoolean("jump_rtp.enabled", false);
+        List<String> list = plugin.getConfig().getStringList("jump_rtp.enabled_worlds");
+        jumpRtpEnabledWorldsCached = list.isEmpty()
+                ? Collections.emptySet()
+                : new HashSet<>(list);
     }
 
     private void loadWorldAliases() {
@@ -256,7 +268,7 @@ public class ConfigManager {
     }
 
     public boolean isJumpRtpEnabled() {
-        return plugin.getConfig().getBoolean("jump_rtp.enabled", false);
+        return jumpRtpEnabledCached;
     }
 
     public int getJumpRtpCooldown() {
@@ -264,7 +276,11 @@ public class ConfigManager {
     }
 
     public List<String> getJumpRtpEnabledWorlds() {
-        return plugin.getConfig().getStringList("jump_rtp.enabled_worlds");
+        return new ArrayList<>(jumpRtpEnabledWorldsCached);
+    }
+
+    public boolean isJumpRtpEnabledInWorld(String worldName) {
+        return jumpRtpEnabledCached && jumpRtpEnabledWorldsCached.contains(worldName);
     }
 
     public int getJumpsRequired() {

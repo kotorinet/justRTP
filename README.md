@@ -1,7 +1,7 @@
 # JustRTP
 
 <p align="center">
-<img src="https://i.imgur.com/Yu2fLr2.png" alt="JustRTP Logo" width="1000"/>
+<img src="https://i.imgur.com/S4ZXjny.png" alt="JustRTP Logo" width="1000"/>
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/Version-3.5.1-brightgreen?style=for-the-badge" alt="Version" />
+<img src="https://img.shields.io/badge/Version-3.5.5-brightgreen?style=for-the-badge" alt="Version" />
 <img src="https://img.shields.io/badge/API-1.21+-blue?style=for-the-badge" alt="API Version" />
 <img src="https://img.shields.io/badge/Java-21+-orange?style=for-the-badge" alt="Java" />
 <img src="https://img.shields.io/badge/Folia-Supported-purple?style=for-the-badge" alt="Folia" />
@@ -34,7 +34,8 @@ JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord ne
 - Cross-server teleport via MySQL (Velocity/BungeeCord)
 - VOID world type for skyblock/oneblock/void arenas
 - RTP zones with countdown holograms and group teleports
-- Hologram backends: FancyHolograms, PacketEvents, or Display Entities (auto-selected)
+- Hologram backends: FancyHolograms, AxoHologram, PacketEvents, or Display Entities (auto-selected)
+- In-game admin dashboard (`/rtp dashboard`) to enable, disable, and tune modules live
 - RTP GUI with cross-server support, auto-open, and custom items
 - Matchmaking queue for PvP duels (1v1, 2v2, team RTP)
 - Jump RTP, first-join RTP, respawn RTP, spawn-world redirect
@@ -68,6 +69,7 @@ JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord ne
 - PlaceholderAPI — placeholder expansion
 - WorldGuard / GriefPrevention / Lands / SimpleClaim — region and claim protection
 - FancyHolograms — persistent, editable zone holograms
+- AxoHologram — display-based zone holograms
 - PacketEvents — packet-based holograms
 - MySQL — cross-server teleportation
 - Redis — shared cache across proxy network
@@ -76,7 +78,7 @@ JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord ne
 
 ## Documentation
 
-For full documentation, including advanced configuration, permissions, and API usage, please visit our [Wiki](https://kotori.ink/wiki/justrtp).
+For full documentation, including advanced configuration, permissions, and API usage, please visit our [Wiki](https://deltura.net/wiki/justrtp).
 
 ---
 

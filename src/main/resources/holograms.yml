@@ -2,7 +2,7 @@
 # JustRTP Hologram Configuration
 # ----------------------------------------------------------------
 # CONFIG VERSION - DO NOT CHANGE THIS
-config-version: 8
+config-version: 9
 # ----------------------------------------------------------------
 #
 # Customize the holograms that appear above RTP zones here.
@@ -11,17 +11,20 @@ config-version: 8
 # ----------------------------------------------------------------
 
 # Preferred Hologram Engine
-# Options: auto, fancyholograms, packetevents, entity
-# 
+# Options: auto, fancyholograms, axohologram, packetevents, entity
+#
 # - auto: Automatically detects and uses the best available engine
-#         Priority: FancyHolograms > PacketEvents > Display Entities
-# 
+#         Priority: FancyHolograms > AxoHologram > PacketEvents > Display Entities
+#
 # - fancyholograms: Force use of FancyHolograms (requires FancyHolograms plugin)
 #                   Best visuals, Paper/Folia 1.21+ only
-# 
+#
+# - axohologram: Force use of AxoHologram (requires AxoHologram plugin)
+#                Display-entity based, MiniMessage + PlaceholderAPI support
+#
 # - packetevents: Force use of PacketEvents (requires PacketEvents plugin)
 #                 High performance, packet-based holograms
-# 
+#
 # - entity: Force use of vanilla Display Entities
 #           No dependencies, works on any Paper/Folia server
 #
@@ -49,7 +52,7 @@ hologram-settings:
   lines:
     - "<gradient:#20B2AA:#7FFFD4><bold>⚡ RTP Zone</bold></gradient>"
     - ""
-    - "<gradient:#FFD700:#FFA500><bold>⏱ <time>s</bold></gradient>"
+    - "<gradient:#FFD700:#FFA500><bold>⏱ <time></bold></gradient>"
     - ""
 
   # Particle effect that swirls around the hologram location.

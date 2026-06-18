@@ -73,6 +73,7 @@ implements Listener {
             return;
         }
         String title = guiConfig.getString("title", "<gradient:#20B2AA:#7FFFD4>Random Teleport</gradient>");
+        title = this.applyPlaceholders(player, title);
         int size = guiConfig.getInt("size", 54);
         size = Math.min(54, Math.max(9, size / 9 * 9));
         Inventory gui = Bukkit.createInventory(null, (int)size, (Component)this.mm.deserialize(title));
@@ -93,7 +94,7 @@ implements Listener {
                 ConfigurationSection itemConfig = decorationSection.getConfigurationSection(key);
                 if (itemConfig == null) continue;
                 List slots = itemConfig.getIntegerList("slots");
-                ItemStack decorItem = this.createDecorationItem(itemConfig);
+                ItemStack decorItem = this.createDecorationItem(player, itemConfig);
                 Iterator iterator = slots.iterator();
                 while (iterator.hasNext()) {
                     int slot = (Integer)iterator.next();
@@ -102,10 +103,14 @@ implements Listener {
                 }
             }
         }
-        if ((closeButtonSection = guiConfig.getConfigurationSection("close_button")) != null && closeButtonSection.getBoolean("enabled", true)) {
-            int slot = closeButtonSection.getInt("slot", size - 1);
-            ItemStack closeItem = this.createCloseButton(closeButtonSection);
-            gui.setItem(slot, closeItem);
+        if ((closeButtonSection = guiConfig.getConfigurationSection("close_button")) != null
+                && closeButtonSection.getBoolean("enabled", true)
+                && !closeButtonSection.getKeys(false).isEmpty()) {
+            int slot = closeButtonSection.getInt("slot", -1);
+            if (slot >= 0 && slot < size) {
+                ItemStack closeItem = this.createCloseButton(player, closeButtonSection);
+                gui.setItem(slot, closeItem);
+            }
         }
         this.activeGuis.put(player.getUniqueId(), "main");
         this.plugin.getFoliaScheduler().runAtEntity((Entity)player, () -> {
@@ -131,6 +136,7 @@ implements Listener {
         }
         String safeWorldName = world.getName().replaceAll("[<>]", "");
         String displayName = config.getString("display_name", "<green>" + safeWorldName);
+        displayName = this.applyPlaceholders(player, displayName);
         Component nameComponent = this.mm.deserialize(displayName, (TagResolver)Placeholder.unparsed((String)"world", (String)safeWorldName)).decoration(TextDecoration.ITALIC, false);
         meta.displayName(nameComponent);
         List<String> loreTemplate = config.getStringList("lore");
@@ -144,6 +150,7 @@ implements Listener {
         int minRadius = worldSettings != null ? worldSettings.getInt("min_radius", 100) : 100;
         for (String line : loreTemplate) {
             String processed = line.replace("<world>", safeWorldName).replace("<cooldown>", cooldownStatus).replace("<cost>", costStr).replace("<max_radius>", String.valueOf(maxRadius)).replace("<min_radius>", String.valueOf(minRadius));
+            processed = this.applyPlaceholders(player, processed);
             lore.add(this.mm.deserialize(processed).decoration(TextDecoration.ITALIC, false));
         }
         meta.lore(lore);
@@ -154,7 +161,7 @@ implements Listener {
         return item;
     }
 
-    private ItemStack createDecorationItem(ConfigurationSection config) {
+    private ItemStack createDecorationItem(Player player, ConfigurationSection config) {
         ItemStack item;
         ItemMeta meta;
         String materialName = config.getString("material", "GRAY_STAINED_GLASS_PANE");
@@ -166,20 +173,25 @@ implements Listener {
             return item;
         }
         String displayName = config.getString("display_name", " ");
+        displayName = this.applyPlaceholders(player, displayName);
         meta.displayName(this.mm.deserialize(displayName).decoration(TextDecoration.ITALIC, false));
         List<String> loreTemplate = config.getStringList("lore");
         if (!loreTemplate.isEmpty()) {
             ArrayList<Component> lore = new ArrayList<Component>();
             for (String line : loreTemplate) {
-                lore.add(this.mm.deserialize(line).decoration(TextDecoration.ITALIC, false));
+                String processed = this.applyPlaceholders(player, line);
+                lore.add(this.mm.deserialize(processed).decoration(TextDecoration.ITALIC, false));
             }
             meta.lore(lore);
+        }
+        if (config.getBoolean("enchanted", false)) {
+            meta.setEnchantmentGlintOverride(Boolean.valueOf(true));
         }
         item.setItemMeta(meta);
         return item;
     }
 
-    private ItemStack createCloseButton(ConfigurationSection config) {
+    private ItemStack createCloseButton(Player player, ConfigurationSection config) {
         ItemStack item;
         ItemMeta meta;
         String materialName = config.getString("material", "BARRIER");
@@ -191,14 +203,19 @@ implements Listener {
             return item;
         }
         String displayName = config.getString("display_name", "<red>Close");
+        displayName = this.applyPlaceholders(player, displayName);
         meta.displayName(this.mm.deserialize(displayName).decoration(TextDecoration.ITALIC, false));
         List<String> loreTemplate = config.getStringList("lore");
         if (!loreTemplate.isEmpty()) {
             ArrayList<Component> lore = new ArrayList<Component>();
             for (String line : loreTemplate) {
-                lore.add(this.mm.deserialize(line).decoration(TextDecoration.ITALIC, false));
+                String processed = this.applyPlaceholders(player, line);
+                lore.add(this.mm.deserialize(processed).decoration(TextDecoration.ITALIC, false));
             }
             meta.lore(lore);
+        }
+        if (config.getBoolean("enchanted", false)) {
+            meta.setEnchantmentGlintOverride(Boolean.valueOf(true));
         }
         item.setItemMeta(meta);
         return item;
@@ -240,9 +257,11 @@ implements Listener {
             return;
         }
         ConfigurationSection closeButtonSection = guiConfig.getConfigurationSection("close_button");
-        if (closeButtonSection != null && closeButtonSection.getBoolean("enabled", true)) {
-            int closeSlot = closeButtonSection.getInt("slot", event.getInventory().getSize() - 1);
-            if (event.getSlot() == closeSlot) {
+        if (closeButtonSection != null
+                && closeButtonSection.getBoolean("enabled", true)
+                && !closeButtonSection.getKeys(false).isEmpty()) {
+            int closeSlot = closeButtonSection.getInt("slot", -1);
+            if (closeSlot >= 0 && event.getSlot() == closeSlot) {
                 player.closeInventory();
                 return;
             }
@@ -293,6 +312,18 @@ implements Listener {
             Player player = (Player)humanEntity;
             this.activeGuis.remove(player.getUniqueId());
         }
+    }
+
+    private String applyPlaceholders(Player player, String text) {
+        if (text == null || text.isEmpty()) return text;
+        if (!text.contains("%")) return text;
+        try {
+            if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+                return me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, text);
+            }
+        } catch (Throwable ignored) {
+        }
+        return text;
     }
 
     public void reload() {

@@ -26,15 +26,17 @@ import java.util.List;
 
 public final class JustRTP extends JavaPlugin {
 
-    private static final int CONFIG_VERSION = 32;
-    private static final int MESSAGES_CONFIG_VERSION = 19;
+    private static final int CONFIG_VERSION = 33;
+    private static final int MESSAGES_CONFIG_VERSION = 21;
     private static final int MYSQL_CONFIG_VERSION = 5;
     private static final int ANIMATIONS_CONFIG_VERSION = 2;
     private static final int COMMANDS_CONFIG_VERSION = 4;
-    private static final int ZONES_CONFIG_VERSION = 12;
-    private static final int HOLOGRAMS_CONFIG_VERSION = 8;
+    private static final int ZONES_CONFIG_VERSION = 13;
+    private static final int HOLOGRAMS_CONFIG_VERSION = 9;
     private static final int REDIS_CONFIG_VERSION = 3;
     private static final int CUSTOM_LOCATIONS_CONFIG_VERSION = 1;
+    private static final int ZONE_PARTICLES_CONFIG_VERSION = 1;
+    private static final int DASHBOARD_CONFIG_VERSION = 2;
 
     private static final String FASTSTATS_TOKEN = "9de868732910e150819fdc6c29a39107";
     public static final ErrorTracker ERROR_TRACKER = ErrorTracker.contextAware();
@@ -60,10 +62,12 @@ public final class JustRTP extends JavaPlugin {
     private CrossServerManager crossServerManager;
     private RTPZoneManager rtpZoneManager;
     private ZoneSetupManager zoneSetupManager;
+    private eu.kotori.justRTP.managers.ZoneParticleManager zoneParticleManager;
     private HologramManager hologramManager;
     private ZoneSyncManager zoneSyncManager;
     private CustomLocationManager customLocationManager;
     private RTPGuiManager rtpGuiManager;
+    private DashboardManager dashboardManager;
     private SpectatorSwitchManager spectatorSwitchManager;
     private NearClaimRTPManager nearClaimRTPManager;
     private RTPMatchmakingManager matchmakingManager;
@@ -95,6 +99,7 @@ public final class JustRTP extends JavaPlugin {
         saveDefaultResource("cache.yml");
         saveDefaultResource("redis.yml");
         saveDefaultResource("custom_locations.yml");
+        saveDefaultResource("dashboard.yml");
 
         configManager = new ConfigManager(this);
 
@@ -112,6 +117,8 @@ public final class JustRTP extends JavaPlugin {
         ConfigUpdater.update(this, "holograms.yml", HOLOGRAMS_CONFIG_VERSION);
         ConfigUpdater.update(this, "redis.yml", REDIS_CONFIG_VERSION);
         ConfigUpdater.update(this, "custom_locations.yml", CUSTOM_LOCATIONS_CONFIG_VERSION);
+        ConfigUpdater.update(this, "zone_particles.yml", ZONE_PARTICLES_CONFIG_VERSION);
+        ConfigUpdater.update(this, "dashboard.yml", DASHBOARD_CONFIG_VERSION);
         rtpLogger.debug("INIT", "Initializing core managers...");
         commandManager = new CommandManager(this);
         foliaScheduler = new FoliaScheduler(this);
@@ -153,10 +160,13 @@ public final class JustRTP extends JavaPlugin {
         confirmationManager = new ConfirmationManager(this);
         zoneSetupManager = new ZoneSetupManager(this);
         hologramManager = new HologramManager(this);
+        zoneParticleManager = new eu.kotori.justRTP.managers.ZoneParticleManager(this);
+        zoneParticleManager.load();
         rtpZoneManager = new RTPZoneManager(this);
         zoneSyncManager = new ZoneSyncManager(this);
         customLocationManager = new CustomLocationManager(this);
         rtpGuiManager = new RTPGuiManager(this);
+        dashboardManager = new DashboardManager(this);
         spectatorSwitchManager = new SpectatorSwitchManager(this);
         nearClaimRTPManager = new NearClaimRTPManager(this);
         matchmakingManager = new RTPMatchmakingManager(this);
@@ -183,14 +193,17 @@ public final class JustRTP extends JavaPlugin {
             rtpLogger.info("HOLOGRAMS", "Initializing hologram system...");
             hologramManager.initialize();
 
-            if (!hologramManager.isUsingPacketEvents() && !hologramManager.isUsingFancyHolograms()) {
+            if (!hologramManager.isUsingPacketEvents() && !hologramManager.isUsingFancyHolograms()
+                    && !hologramManager.isUsingAxoHolograms()) {
                 rtpLogger.warn("HOLOGRAMS", "Using entity-based holograms (Display entities)");
                 rtpLogger.info("HOLOGRAMS",
-                        "Recommendation: Install FancyHolograms or PacketEvents for better performance");
+                        "Recommendation: Install FancyHolograms, AxoHologram or PacketEvents for better performance");
                 rtpLogger.debug("HOLOGRAMS", "FancyHolograms: https//:modrinth.com/plugin/fancyholograms");
                 rtpLogger.debug("HOLOGRAMS", "PacketEvents: https://modrinth.com/plugin/packetevents");
             } else if (hologramManager.isUsingFancyHolograms()) {
                 rtpLogger.success("HOLOGRAMS", "FancyHolograms integration enabled");
+            } else if (hologramManager.isUsingAxoHolograms()) {
+                rtpLogger.success("HOLOGRAMS", "AxoHologram integration enabled");
             } else if (hologramManager.isUsingPacketEvents()) {
                 rtpLogger.success("HOLOGRAMS", "PacketEvents integration enabled");
             }
@@ -212,6 +225,7 @@ public final class JustRTP extends JavaPlugin {
             addonManager.loadAddons();
 
             StartupMessage.sendStartupMessage(this);
+            StartupMessage.sendModuleStatus(this);
 
             int onlinePlayers = getServer().getOnlinePlayers().size();
             if (onlinePlayers > 0) {
@@ -287,43 +301,47 @@ public final class JustRTP extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        logShutdownInfo("Disabling JustRTP...");
         if (rtpLogger != null) {
             rtpLogger.separator();
-            rtpLogger.info("SHUTDOWN", "Disabling JustRTP...");
         }
 
         if (addonManager != null) {
-            rtpLogger.debug("SHUTDOWN", "Disabling addons...");
+            logShutdownDebug("Disabling addons...");
             addonManager.disableAddons();
         }
 
         if (rtpZoneManager != null) {
-            rtpLogger.debug("SHUTDOWN", "Shutting down zone tasks...");
+            logShutdownDebug("Shutting down zone tasks...");
             rtpZoneManager.shutdownAllTasks();
         }
 
         if (effectsManager != null) {
-            rtpLogger.debug("SHUTDOWN", "Removing boss bars...");
+            logShutdownDebug("Removing boss bars...");
             effectsManager.removeAllBossBars();
         }
 
         if (fastStatsMetrics != null) {
-            rtpLogger.debug("SHUTDOWN", "Shutting down FastStats...");
+            logShutdownDebug("Shutting down FastStats...");
             fastStatsMetrics.shutdown();
         }
 
         if (databaseManager != null && databaseManager.isConnected()) {
-            rtpLogger.info("DATABASE", "Closing MySQL connection...");
+            logShutdownInfo("Closing MySQL connection...");
             databaseManager.close();
         }
 
         if (locationCacheManager != null) {
-            rtpLogger.info("CACHE", "Saving location cache...");
+            logShutdownInfo("Saving location cache...");
             locationCacheManager.shutdown();
         }
 
+        if (dashboardManager != null) {
+            dashboardManager.cleanup();
+        }
+
         if (hologramManager != null) {
-            rtpLogger.debug("SHUTDOWN", "Cleaning up holograms...");
+            logShutdownDebug("Cleaning up holograms...");
             hologramManager.cleanupAllHolograms();
         }
 
@@ -332,6 +350,20 @@ public final class JustRTP extends JavaPlugin {
         if (rtpLogger != null) {
             rtpLogger.success("Plugin disabled successfully");
             rtpLogger.separator();
+        }
+    }
+
+    private void logShutdownInfo(String message) {
+        if (rtpLogger != null) {
+            rtpLogger.info("SHUTDOWN", message);
+        } else {
+            getLogger().info(message);
+        }
+    }
+
+    private void logShutdownDebug(String message) {
+        if (rtpLogger != null) {
+            rtpLogger.debug("SHUTDOWN", message);
         }
     }
 
@@ -348,6 +380,8 @@ public final class JustRTP extends JavaPlugin {
         ConfigUpdater.update(this, "holograms.yml", HOLOGRAMS_CONFIG_VERSION);
         ConfigUpdater.update(this, "redis.yml", REDIS_CONFIG_VERSION);
         ConfigUpdater.update(this, "custom_locations.yml", CUSTOM_LOCATIONS_CONFIG_VERSION);
+        ConfigUpdater.update(this, "zone_particles.yml", ZONE_PARTICLES_CONFIG_VERSION);
+        ConfigUpdater.update(this, "dashboard.yml", DASHBOARD_CONFIG_VERSION);
 
         vaultHook.setupEconomy();
 
@@ -371,6 +405,10 @@ public final class JustRTP extends JavaPlugin {
         rtpZoneManager.loadZones();
         customLocationManager.reload();
         rtpGuiManager.reload();
+        if (dashboardManager != null) {
+            dashboardManager.reloadConfig();
+        }
+        applyJumpRtpListenerState();
         spectatorSwitchManager.reload();
         nearClaimRTPManager.reload();
 
@@ -391,7 +429,10 @@ public final class JustRTP extends JavaPlugin {
         }
         locationCacheManager = new LocationCacheManager(this);
         locationCacheManager.initialize();
-        animationManager = new AnimationManager(this);
+
+        if (matchmakingManager != null) {
+            matchmakingManager.restart();
+        }
 
         for (Player player : getServer().getOnlinePlayers()) {
             rtpZoneManager.handlePlayerMove(player, player.getLocation());
@@ -515,6 +556,10 @@ public final class JustRTP extends JavaPlugin {
         return rtpZoneManager;
     }
 
+    public eu.kotori.justRTP.managers.ZoneParticleManager getZoneParticleManager() {
+        return zoneParticleManager;
+    }
+
     public ZoneSetupManager getZoneSetupManager() {
         return zoneSetupManager;
     }
@@ -539,6 +584,25 @@ public final class JustRTP extends JavaPlugin {
         return rtpGuiManager;
     }
 
+    public DashboardManager getDashboardManager() {
+        return dashboardManager;
+    }
+
+    public void applyJumpRtpListenerState() {
+        boolean enabled = getConfig().getBoolean("jump_rtp.enabled", false);
+        if (enabled) {
+            if (jumpRTPListener == null) {
+                jumpRTPListener = new JumpRTPListener(this);
+                getServer().getPluginManager().registerEvents(jumpRTPListener, this);
+                rtpLogger.debug("JUMPRTP", "Jump RTP listener registered (live toggle).");
+            }
+        } else if (jumpRTPListener != null) {
+            org.bukkit.event.HandlerList.unregisterAll(jumpRTPListener);
+            jumpRTPListener = null;
+            rtpLogger.debug("JUMPRTP", "Jump RTP listener unregistered (live toggle).");
+        }
+    }
+
     public SpectatorSwitchManager getSpectatorSwitchManager() {
         return spectatorSwitchManager;
     }
@@ -551,13 +615,20 @@ public final class JustRTP extends JavaPlugin {
         return matchmakingManager;
     }
 
-    private DataManager dataManager;
+    private volatile DataManager dataManager;
 
     public DataManager getDataManager() {
-        if (dataManager == null) {
-            dataManager = new DataManager(this);
+        DataManager local = dataManager;
+        if (local == null) {
+            synchronized (this) {
+                local = dataManager;
+                if (local == null) {
+                    local = new DataManager(this);
+                    dataManager = local;
+                }
+            }
         }
-        return dataManager;
+        return local;
     }
 
     private PlayerListener playerListener;

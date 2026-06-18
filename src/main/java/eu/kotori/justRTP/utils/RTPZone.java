@@ -5,12 +5,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class RTPZone {
     private final String id;
     private final String worldName;
-    private final Cuboid cuboid;
+    private final ZoneRegion region;
     private final int interval;
     private final List<String> targets;
     private final int minRadius;
@@ -19,6 +20,7 @@ public class RTPZone {
     private final int maxSpreadDistance;
     private Location hologramLocation;
     private int hologramViewDistance;
+    private ZoneParticleStyle particleStyle = ZoneParticleStyle.NONE;
     private final String configPath;
 
     public RTPZone(String id, ConfigurationSection section) {
@@ -28,15 +30,28 @@ public class RTPZone {
         if (worldName == null || Bukkit.getWorld(worldName) == null) {
             throw new IllegalArgumentException("Invalid or missing world name for zone '" + id + "'.");
         }
-        Location pos1 = section.getLocation("pos1");
-        Location pos2 = section.getLocation("pos2");
-        if (pos1 == null || pos2 == null) {
-            throw new IllegalArgumentException("Missing position 1 or 2 for zone '" + id + "'.");
+
+        ZoneShape shape = ZoneShape.fromString(section.getString("shape"));
+        if (section.getString("shape") == null && section.contains("pos1") && section.contains("pos2")) {
+            shape = ZoneShape.CUBOID;
         }
-        this.cuboid = new Cuboid(pos1, pos2);
+
+        switch (shape) {
+            case CYLINDER:
+                this.region = CylinderRegion.load(section);
+                break;
+            case BLOCKS:
+                this.region = BlocksRegion.load(section);
+                break;
+            case CUBOID:
+            default:
+                this.region = CuboidRegion.load(section);
+                break;
+        }
+
         this.interval = section.getInt("interval", 30);
 
-        this.targets = new java.util.ArrayList<>();
+        this.targets = new ArrayList<>();
         if (section.isList("target")) {
             this.targets.addAll(section.getStringList("target"));
         } else {
@@ -70,12 +85,41 @@ public class RTPZone {
             this.hologramLocation = section.getLocation("hologram.location");
             this.hologramViewDistance = section.getInt("hologram.view-distance", 64);
         }
+
+        String particleStyleStr = section.getString("particle-style");
+        if (particleStyleStr == null) {
+            try {
+                JustRTP inst = JustRTP.getInstance();
+                if (inst != null && inst.getZoneParticleManager() != null) {
+                    particleStyleStr = inst.getZoneParticleManager().getDefaultStyle();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        this.particleStyle = ZoneParticleStyle.fromString(particleStyleStr);
+    }
+
+    public RTPZone(String id, String worldName, ZoneRegion region, List<String> targets,
+                   int interval, int minRadius, int maxRadius,
+                   int minSpreadDistance, int maxSpreadDistance,
+                   Location hologramLocation, int hologramViewDistance, String configPath) {
+        this.id = id;
+        this.worldName = worldName;
+        this.region = region;
+        this.targets = new ArrayList<>(targets);
+        this.interval = interval;
+        this.minRadius = minRadius;
+        this.maxRadius = maxRadius;
+        this.minSpreadDistance = minSpreadDistance;
+        this.maxSpreadDistance = maxSpreadDistance;
+        this.hologramLocation = hologramLocation;
+        this.hologramViewDistance = hologramViewDistance;
+        this.configPath = configPath;
     }
 
     public void serialize(ConfigurationSection section) {
         section.set("world", worldName);
-        section.set("pos1", cuboid.getLowerNE());
-        section.set("pos2", cuboid.getUpperSW());
+        region.serialize(section);
         section.set("interval", interval);
         section.set("target", targets);
         section.set("min-radius", minRadius);
@@ -88,14 +132,37 @@ public class RTPZone {
         } else {
             section.set("hologram", null);
         }
+        if (particleStyle != null && particleStyle != ZoneParticleStyle.NONE) {
+            section.set("particle-style", particleStyle.name());
+        } else {
+            section.set("particle-style", null);
+        }
+    }
+
+    public ZoneParticleStyle getParticleStyle() {
+        return particleStyle != null ? particleStyle : ZoneParticleStyle.NONE;
+    }
+
+    public void setParticleStyle(ZoneParticleStyle style) {
+        this.particleStyle = style != null ? style : ZoneParticleStyle.NONE;
     }
 
     public boolean contains(Location loc) {
-        return loc.getWorld().getName().equals(worldName) && cuboid.contains(loc);
+        if (loc == null || loc.getWorld() == null) return false;
+        if (!loc.getWorld().getName().equals(worldName)) return false;
+        return region.contains(loc);
     }
 
     public Location getCenterLocation() {
-        return cuboid.getCenter();
+        return region.getCenter();
+    }
+
+    public ZoneRegion getRegion() {
+        return region;
+    }
+
+    public ZoneShape getShape() {
+        return region.getShape();
     }
 
     public String getId() {

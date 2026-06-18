@@ -19,6 +19,8 @@ public class LocationCacheManager {
     private final Map<String, ConcurrentLinkedQueue<Location>> locationCache = new ConcurrentHashMap<>();
     private final Map<String, Boolean> isRefilling = new ConcurrentHashMap<>();
     private final Map<String, Long> failedWorldsCooldown = new ConcurrentHashMap<>();
+    private final Map<String, Integer> consecutiveFailures = new ConcurrentHashMap<>();
+    private final java.util.Set<String> runtimeDisabledWorlds = ConcurrentHashMap.newKeySet();
     private CancellableTask refillTask;
     private boolean cacheEnabled;
     private int cacheSize;
@@ -46,6 +48,8 @@ public class LocationCacheManager {
 
         isRefilling.clear();
         failedWorldsCooldown.clear();
+        consecutiveFailures.clear();
+        runtimeDisabledWorlds.clear();
 
         ConfigurationSection cacheWorldsSection = plugin.getConfig().getConfigurationSection("location_cache.worlds");
         if (cacheWorldsSection != null) {
@@ -188,11 +192,28 @@ public class LocationCacheManager {
 
     private void startRefillTask(long interval) {
         refillTask = plugin.getFoliaScheduler().runTimer(() -> {
+            if (plugin.getServer().getOnlinePlayers().isEmpty()) {
+                return;
+            }
+            boolean refillOnlyAfterUse = plugin.getConfig().getBoolean("location_cache.refill_only_after_use", true);
+            int parallelLimit = Math.max(1, plugin.getConfig().getInt("location_cache.max_parallel_world_fills", 1));
+            int started = 0;
             for (String worldName : locationCache.keySet()) {
                 World world = plugin.getServer().getWorld(worldName);
-                if (world != null) {
-                    refillCache(world);
+                if (world == null) continue;
+                ConcurrentLinkedQueue<Location> queue = locationCache.get(worldName);
+                if (refillOnlyAfterUse && queue != null && queue.size() == cacheSize) {
+                    continue;
                 }
+                if (Boolean.TRUE.equals(isRefilling.get(worldName))) {
+                    started++;
+                    continue;
+                }
+                if (started >= parallelLimit) {
+                    break;
+                }
+                refillCache(world);
+                started++;
             }
         }, 100L, interval);
     }
@@ -200,6 +221,10 @@ public class LocationCacheManager {
     private void refillCache(World world) {
         if (!plugin.getConfigManager().isCacheEnabledForWorld(world))
             return;
+
+        if (runtimeDisabledWorlds.contains(world.getName())) {
+            return;
+        }
 
         ConcurrentLinkedQueue<Location> queue = locationCache.get(world.getName());
         if (queue == null || queue.size() >= cacheSize) {
@@ -244,10 +269,25 @@ public class LocationCacheManager {
                                 queue.add(locationOpt.get());
                             }
                             failedWorldsCooldown.remove(world.getName());
-                            plugin.getFoliaScheduler().runAsync(() -> fillQueueWorker(world, locationsNeeded - 1));
+                            consecutiveFailures.remove(world.getName());
+                            int throttleTicks = Math.max(1, plugin.getConfig().getInt("location_cache.fill_throttle_ticks", 10));
+                            plugin.getFoliaScheduler().runLater(
+                                    () -> plugin.getFoliaScheduler().runAsync(() -> fillQueueWorker(world, locationsNeeded - 1)),
+                                    throttleTicks);
                         } else {
-                            plugin.getLogger().warning("Failed to find a safe location for '" + world.getName()
-                                    + "' cache after many attempts. Pausing searches for this world for 1 minute.");
+                            int failures = consecutiveFailures.merge(world.getName(), 1, Integer::sum);
+                            int disableAfter = Math.max(1,
+                                    plugin.getConfig().getInt("location_cache.fail_world_disable_after_attempts", 3));
+                            if (failures >= disableAfter) {
+                                runtimeDisabledWorlds.add(world.getName());
+                                plugin.getLogger().warning("Background cache for '" + world.getName()
+                                        + "' disabled after " + failures
+                                        + " consecutive failed cycles. Re-enable via /rtp reload after fixing world configuration.");
+                            } else {
+                                plugin.getLogger().warning("Failed to find a safe location for '" + world.getName()
+                                        + "' cache (cycle " + failures + "/" + disableAfter
+                                        + "). Pausing searches for this world for 1 minute.");
+                            }
                             failedWorldsCooldown.put(world.getName(), System.currentTimeMillis());
                         }
                     } catch (Exception e) {

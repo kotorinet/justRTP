@@ -1,0 +1,245 @@
+# ----------------------------------------------------------------
+# JustRTP Dashboard
+# ----------------------------------------------------------------
+# Admin control panel. Open with /rtp dashboard (permission: justrtp.command.dashboard).
+#
+# Left-click a module to toggle it. Right-click to open its settings:
+# true/false settings toggle on click, numbers and text are typed in chat.
+#
+# Changes are written into the matching config.yml line and applied with a
+# live reload, so your comments stay intact. Modules marked "restart required"
+# save instantly but only fully apply after a restart.
+#
+# The titles, icons, slots, sounds and lore below are yours to change.
+# Which feature each icon controls is fixed in code. Text uses MiniMessage.
+# ----------------------------------------------------------------
+# CONFIG VERSION - DO NOT CHANGE THIS
+config-version: 2
+# ----------------------------------------------------------------
+
+# Master switch for the whole dashboard command.
+enabled: true
+
+settings:
+  # Empty slots are filled with this. Use "" or "AIR" for a plain dark background.
+  filler-material: "BLACK_STAINED_GLASS_PANE"
+  filler-name: " "
+  # Namespaced sound keys played to the admin. Set any to "" to disable.
+  sounds:
+    open: "minecraft:block.ender_chest.open"
+    toggle-on: "minecraft:block.note_block.pling"
+    toggle-off: "minecraft:block.note_block.bass"
+    edit: "minecraft:ui.button.click"
+    save: "minecraft:entity.experience_orb.pickup"
+
+# ----------------------------------------------------------------
+#  Main panel
+# ----------------------------------------------------------------
+# Item placeholders: <state> <reload_note> <module_name>
+# Title/info placeholders: <module_count> <enabled_count>
+main-menu:
+  title: "<gradient:#20B2AA:#7FFFD4>JustRTP Dashboard</gradient>"
+  rows: 6
+  state-on: "<green>● Enabled"
+  state-off: "<red>● Disabled"
+  # Shown in the <reload_note> placeholder depending on how the module applies.
+  note-live: "<dark_gray>Applies instantly on toggle"
+  note-restart: "<gold>Restart required to fully apply"
+  # Lore appended under every module icon. Keep <state> and <reload_note> somewhere.
+  module-lore:
+    - ""
+    - "<gray>Status: <state>"
+    - "<reload_note>"
+    - ""
+    - "<yellow>» Left-click to toggle"
+    - "<gray>» Right-click to edit settings"
+  info:
+    enabled: true
+    slot: 4
+    material: "COMPASS"
+    name: "<gradient:#20B2AA:#7FFFD4>Control Panel</gradient>"
+    lore:
+      - "<gray>Enable, disable and tune every"
+      - "<gray>JustRTP feature from one place."
+      - ""
+      - "<gray>Modules: <white><module_count>"
+      - "<gray>Currently enabled: <green><enabled_count>"
+      - ""
+      - "<dark_gray>Changes save to config.yml and reload live."
+  close:
+    enabled: true
+    slot: 49
+    material: "BARRIER"
+    name: "<red>Close"
+    lore: []
+
+  # ----------------------------------------------------------------
+  #  Modules
+  # ----------------------------------------------------------------
+  # 'slot' / 'material' / 'name' / 'description' are yours to change.
+  # 'config' is shown for reference only; the real binding lives in code.
+  modules:
+    location_cache:
+      slot: 10
+      material: "ENDER_CHEST"
+      name: "<aqua>Location Cache"
+      description: "<gray>Pre-finds safe spots for instant teleports."
+    teleport_queue:
+      slot: 11
+      material: "HOPPER"
+      name: "<aqua>Teleport Queue"
+      description: "<gray>Spreads heavy RTP load to avoid lag spikes."
+    smooth_transition:
+      slot: 12
+      material: "ICE"
+      name: "<aqua>Smooth Transition"
+      description: "<gray>Pre-loads chunks and hides the void on arrival."
+    rtp_gui:
+      slot: 13
+      material: "CHEST"
+      name: "<aqua>RTP GUI"
+      description: "<gray>World-selection menu via /rtp gui."
+    spectator_switch:
+      slot: 14
+      material: "PLAYER_HEAD"
+      name: "<aqua>Spectator Switch"
+      description: "<gray>Floating-head world selector via /rtp spectator."
+    jump_rtp:
+      slot: 15
+      material: "FEATHER"
+      name: "<aqua>Jump RTP"
+      description: "<gray>Teleport by jumping in mid-air."
+    nearplayer:
+      slot: 16
+      material: "COMPASS"
+      name: "<aqua>Near Player RTP"
+      description: "<gray>Teleport close to a random online player."
+    near_claim_rtp:
+      slot: 19
+      material: "FILLED_MAP"
+      name: "<aqua>Near Claim RTP"
+      description: "<gray>Teleport near claimed territories."
+    matchmaking:
+      slot: 20
+      material: "IRON_SWORD"
+      name: "<aqua>Matchmaking Queue"
+      description: "<gray>Group players and drop them together for PvP."
+    first_join_rtp:
+      slot: 21
+      material: "OAK_SAPLING"
+      name: "<aqua>First Join RTP"
+      description: "<gray>Randomly place brand-new players on first join."
+    respawn_rtp:
+      slot: 22
+      material: "RESPAWN_ANCHOR"
+      name: "<aqua>Respawn RTP"
+      description: "<gray>Randomly place players when they respawn."
+    spawn_world_redirect:
+      slot: 23
+      material: "LODESTONE"
+      name: "<aqua>Spawn Redirect"
+      description: "<gray>Send /rtp from spawn to another world."
+    zone_title:
+      slot: 24
+      material: "OAK_SIGN"
+      name: "<aqua>Zone Countdown Title"
+      description: "<gray>Default countdown title inside RTP zones."
+    rtpzone_command:
+      slot: 25
+      material: "COMMAND_BLOCK"
+      name: "<aqua>RTP Zone Command"
+      description: "<gray>Master switch for the /rtpzone command."
+    economy:
+      slot: 28
+      material: "GOLD_INGOT"
+      name: "<gold>Economy"
+      description: "<gray>Charge players for teleporting (needs Vault)."
+    proxy:
+      slot: 29
+      material: "ENDER_PEARL"
+      name: "<gold>Cross-Server (Proxy)"
+      description: "<gray>RTP between servers (needs MySQL)."
+    redis:
+      slot: 30
+      material: "REDSTONE"
+      name: "<gold>Redis"
+      description: "<gray>High-performance cache and pub/sub."
+    update_checker:
+      slot: 31
+      material: "WRITABLE_BOOK"
+      name: "<aqua>Update Checker"
+      description: "<gray>Check for newer JustRTP versions on startup."
+    debug:
+      slot: 32
+      material: "REDSTONE_TORCH"
+      name: "<aqua>Debug Logging"
+      description: "<gray>Verbose console output for troubleshooting."
+    general:
+      slot: 33
+      material: "CLOCK"
+      name: "<aqua>General Settings"
+      description: "<gray>Core cooldown, delay and attempt values."
+
+# ----------------------------------------------------------------
+#  Module settings (right-click a module)
+# ----------------------------------------------------------------
+# Generic settings screen reused for every module.
+#   - true/false settings toggle on click (no typing, the menu does not close)
+#   - number and text settings open a chat prompt, type the value or 'cancel'
+# Item placeholders: <setting> <value> · Title placeholder: <module_name>
+settings-menu:
+  title: "<gradient:#20B2AA:#7FFFD4><module_name></gradient> <dark_gray>Settings"
+  rows: 5
+  # The settings icons are centred on this row (0 = top row, 4 = bottom row of a 5-row menu).
+  row: 2
+  # Per-type icons for the setting tiles. Booleans use the on/off pair to show their state at a glance.
+  icons:
+    boolean-on: "LIME_DYE"
+    boolean-off: "GRAY_DYE"
+    int: "COMPARATOR"
+    long: "REPEATER"
+    double: "CLOCK"
+    string: "NAME_TAG"
+  # The on/off switch for the module, shown at the top of its settings screen.
+  toggle:
+    slot: 4
+    material-on: "LIME_DYE"
+    material-off: "GRAY_DYE"
+    name: "<white>Module: <state>"
+    lore:
+      - "<reload_note>"
+      - ""
+      - "<yellow>» Click to toggle"
+  setting-item:
+    name: "<gradient:#20B2AA:#7FFFD4><setting></gradient>"
+    lore:
+      - "<gray>Current: <yellow><value>"
+      - ""
+      - "<yellow>» Click to edit in chat"
+  back:
+    slot: 40
+    material: "ARROW"
+    name: "<gray>« Back"
+    lore: []
+  empty:
+    slot: 22
+    material: "BARRIER"
+    name: "<gray>No editable settings"
+    lore:
+      - "<dark_gray>This module only has an on/off switch."
+
+# ----------------------------------------------------------------
+#  Messages
+# ----------------------------------------------------------------
+messages:
+  no-permission: "<red>You do not have permission to use the dashboard."
+  disabled: "<red>The dashboard is disabled in dashboard.yml."
+  toggled-on: "<gray>[<gradient:#20B2AA:#7FFFD4>Dashboard</gradient>] <white><module_name> <green>enabled<white>."
+  toggled-off: "<gray>[<gradient:#20B2AA:#7FFFD4>Dashboard</gradient>] <white><module_name> <red>disabled<white>."
+  restart-note: "<gold>Note: a server restart is needed for <module_name> to fully take effect."
+  edit-prompt: "<gray>[<gradient:#20B2AA:#7FFFD4>Dashboard</gradient>] <white>Type the new value for <yellow><setting></yellow> in chat, or <gray>cancel</gray>."
+  edit-current: "<dark_gray>Current value: <gray><value>"
+  edit-cancelled: "<gray>[<gradient:#20B2AA:#7FFFD4>Dashboard</gradient>] <red>Edit cancelled."
+  edit-invalid: "<gray>[<gradient:#20B2AA:#7FFFD4>Dashboard</gradient>] <red>'<input>' is not a valid <type> value."
+  edit-saved: "<gray>[<gradient:#20B2AA:#7FFFD4>Dashboard</gradient>] <white><setting> set to <green><value><white>."
+  write-failed: "<gray>[<gradient:#20B2AA:#7FFFD4>Dashboard</gradient>] <red>Could not write that change to config.yml. Check the console."

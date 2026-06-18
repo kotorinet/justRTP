@@ -29,19 +29,35 @@ public class FoliaScheduler {
         return IS_FOLIA;
     }
 
+    private boolean runInlineIfDisabled(Runnable task) {
+        if (plugin.isEnabled()) return false;
+        try { task.run(); } catch (Throwable ignored) {}
+        return true;
+    }
+
     public void runNow(Runnable task) {
-        if (IS_FOLIA) {
-            Bukkit.getGlobalRegionScheduler().execute(plugin, task);
-        } else {
-            Bukkit.getScheduler().runTask(plugin, task);
+        if (runInlineIfDisabled(task)) return;
+        try {
+            if (IS_FOLIA) {
+                Bukkit.getGlobalRegionScheduler().execute(plugin, task);
+            } else {
+                Bukkit.getScheduler().runTask(plugin, task);
+            }
+        } catch (Throwable e) {
+            try { task.run(); } catch (Throwable ignored) {}
         }
     }
 
     public void runAsync(Runnable task) {
-        if (IS_FOLIA) {
-            Bukkit.getAsyncScheduler().runNow(plugin, scheduledTask -> task.run());
-        } else {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
+        if (runInlineIfDisabled(task)) return;
+        try {
+            if (IS_FOLIA) {
+                Bukkit.getAsyncScheduler().runNow(plugin, scheduledTask -> task.run());
+            } else {
+                Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
+            }
+        } catch (Throwable e) {
+            try { task.run(); } catch (Throwable ignored) {}
         }
     }
 
@@ -65,10 +81,15 @@ public class FoliaScheduler {
     }
 
     public void runAtLocation(Location location, Runnable task) {
-        if (IS_FOLIA) {
-            Bukkit.getRegionScheduler().execute(plugin, location, task);
-        } else {
-            Bukkit.getScheduler().runTask(plugin, task);
+        if (runInlineIfDisabled(task)) return;
+        try {
+            if (IS_FOLIA) {
+                Bukkit.getRegionScheduler().execute(plugin, location, task);
+            } else {
+                Bukkit.getScheduler().runTask(plugin, task);
+            }
+        } catch (Throwable e) {
+            try { task.run(); } catch (Throwable ignored) {}
         }
     }
 
@@ -83,18 +104,28 @@ public class FoliaScheduler {
     }
 
     public void runAtChunk(Chunk chunk, Runnable task) {
-        if (IS_FOLIA) {
-            Bukkit.getRegionScheduler().execute(plugin, chunk.getWorld(), chunk.getX(), chunk.getZ(), task);
-        } else {
-            Bukkit.getScheduler().runTask(plugin, task);
+        if (runInlineIfDisabled(task)) return;
+        try {
+            if (IS_FOLIA) {
+                Bukkit.getRegionScheduler().execute(plugin, chunk.getWorld(), chunk.getX(), chunk.getZ(), task);
+            } else {
+                Bukkit.getScheduler().runTask(plugin, task);
+            }
+        } catch (Throwable e) {
+            try { task.run(); } catch (Throwable ignored) {}
         }
     }
 
     public void runAtEntity(Entity entity, Runnable task) {
-        if (IS_FOLIA) {
-            entity.getScheduler().execute(plugin, task, null, 1L);
-        } else {
-            Bukkit.getScheduler().runTask(plugin, task);
+        if (runInlineIfDisabled(task)) return;
+        try {
+            if (IS_FOLIA) {
+                entity.getScheduler().execute(plugin, task, null, 1L);
+            } else {
+                Bukkit.getScheduler().runTask(plugin, task);
+            }
+        } catch (Throwable e) {
+            try { task.run(); } catch (Throwable ignored) {}
         }
     }
 

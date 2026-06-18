@@ -120,6 +120,13 @@ public class Metrics {
         return enabled;
     }
 
+    public void addCustomChart(CustomChart chart) {
+        if (chart == null) {
+            throw new IllegalArgumentException("Chart cannot be null!");
+        }
+        charts.add(chart);
+    }
+
     private static boolean isFolia() {
         try {
             Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
@@ -127,13 +134,6 @@ public class Metrics {
         } catch (ClassNotFoundException ignored) {
             return false;
         }
-    }
-
-    public void addCustomChart(CustomChart chart) {
-        if (chart == null) {
-            throw new IllegalArgumentException("Chart cannot be null!");
-        }
-        charts.add(chart);
     }
 
     private void startSubmitting() {

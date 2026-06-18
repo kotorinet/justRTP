@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>eu.kotori</groupId>
     <artifactId>justRTP</artifactId>
-    <version>3.5.1</version>
+    <version>3.5.5</version>
     <packaging>jar</packaging>
     <name>JustRTP</name>
     <properties>

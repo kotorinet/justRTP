@@ -1,7 +1,6 @@
 package eu.kotori.justRTP.utils;
 
 import eu.kotori.justRTP.JustRTP;
-import io.papermc.lib.PaperLib;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,7 +16,7 @@ public class SafetyValidator {
             return CompletableFuture.completedFuture(false);
         }
 
-        return PaperLib.getChunkAtAsync(location)
+        return location.getWorld().getChunkAtAsync(location.getBlockX() >> 4, location.getBlockZ() >> 4, false)
                 .thenApply(chunk -> {
                     if (chunk == null)
                         return false;

@@ -32,6 +32,8 @@ public class DatabaseManager {
     private final ThreadSafetyGuard threadGuard;
     private HikariDataSource dataSource;
     private boolean supportsSkipLocked = false;
+    private volatile boolean connectionHealthy = false;
+    private volatile boolean reconnectInProgress = false;
 
     public DatabaseManager(JustRTP plugin, FoliaScheduler scheduler) {
         this.plugin = plugin;
@@ -59,6 +61,8 @@ public class DatabaseManager {
                         }
                         return null;
                     }), 6000L, 6000L);
+
+            scheduler.runTimer(() -> scheduler.runAsync(this::validateConnectionAsync), 600L, 600L);
         }
     }
 
@@ -171,8 +175,11 @@ public class DatabaseManager {
 
             plugin.getLogger()
                     .info("Successfully connected to MySQL database at " + host + ":" + port + "/" + database);
+            connectionHealthy = true;
+            lastConnectionError = null;
         } catch (Exception e) {
             lastConnectionError = e.getMessage();
+            connectionHealthy = false;
             plugin.getLogger().severe("Could not connect to MySQL database! " + e.getMessage());
             if (plugin.getConfig().getBoolean("settings.debug", false)) {
                 e.printStackTrace();
@@ -185,30 +192,45 @@ public class DatabaseManager {
     }
 
     public boolean isConnected() {
+        return dataSource != null && !dataSource.isClosed() && connectionHealthy;
+    }
+
+    private void validateConnectionAsync() {
         if (dataSource == null || dataSource.isClosed()) {
-            return false;
+            connectionHealthy = false;
+            return;
         }
 
         try (Connection conn = dataSource.getConnection()) {
-            return conn.isValid(3);
+            boolean valid = conn.isValid(3);
+            connectionHealthy = valid;
+            if (!valid) {
+                plugin.getRTPLogger().debug("SQL", "Database connection validation returned invalid");
+            }
         } catch (SQLException e) {
+            connectionHealthy = false;
             plugin.getRTPLogger().debug("SQL", "Database connection validation failed: " + e.getMessage());
 
-            if (e.getMessage().contains("Communications link failure") ||
-                    e.getMessage().contains("Connection timed out") ||
-                    e.getMessage().contains("Connection refused")) {
+            String msg = e.getMessage() == null ? "" : e.getMessage();
+            if (msg.contains("Communications link failure") ||
+                    msg.contains("Connection timed out") ||
+                    msg.contains("Connection refused")) {
+                if (reconnectInProgress) {
+                    return;
+                }
+                reconnectInProgress = true;
                 plugin.getLogger().warning("Database connection lost, attempting automatic reconnection...");
-
                 plugin.getFoliaScheduler().runAsync(() -> {
                     try {
                         Thread.sleep(5000);
                         forceReconnect();
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
+                    } finally {
+                        reconnectInProgress = false;
                     }
                 });
             }
-            return false;
         }
     }
 
@@ -1077,6 +1099,7 @@ public class DatabaseManager {
     }
 
     public void close() {
+        connectionHealthy = false;
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
             plugin.getLogger().info("MySQL connection closed.");
