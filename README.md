@@ -25,7 +25,7 @@
 
 ## Overview
 
-JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord networks. Supports Minecraft 1.21 through 26.1.
+JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord networks. Supports Minecraft 1.21 through 26.2.
 
 ### Features
 
@@ -62,7 +62,7 @@ JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord ne
 
 **Required:**
 - Java 21+
-- Paper 1.21+ or Folia 1.21+ (tested up to 26.1)
+- Paper 1.21+ or Folia 1.21+ (tested up to 26.2)
 
 **Optional:**
 - Vault — economy and permission groups
