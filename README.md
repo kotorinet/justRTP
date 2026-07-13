@@ -1,7 +1,7 @@
 # JustRTP
 
 <p align="center">
-<img src="https://i.imgur.com/S4ZXjny.png" alt="JustRTP Logo" width="1000"/>
+<img src="https://i.imgur.com/oj01YK7.png" alt="JustRTP Logo" width="1000"/>
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/Version-3.5.5-brightgreen?style=for-the-badge" alt="Version" />
+<img src="https://img.shields.io/badge/Version-3.6.1-brightgreen?style=for-the-badge" alt="Version" />
 <img src="https://img.shields.io/badge/API-1.21+-blue?style=for-the-badge" alt="API Version" />
 <img src="https://img.shields.io/badge/Java-21+-orange?style=for-the-badge" alt="Java" />
 <img src="https://img.shields.io/badge/Folia-Supported-purple?style=for-the-badge" alt="Folia" />
@@ -30,12 +30,16 @@ JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord ne
 ### Features
 
 - Per-world cooldowns, radius, cost, and biome rules
-- Async location cache with configurable chunk pre-generation
+- Six landing shapes (round, square, ring, cross, star, spread), global or per world
+- Smart location cache that sizes itself per world from player count, live demand, TPS, and free memory, and learns good spots from real teleports
+- Air RTP: sky drop with an animated parachute and glide-to-land (command, always mode, per-zone, and cross-server)
 - Cross-server teleport via MySQL (Velocity/BungeeCord)
 - VOID world type for skyblock/oneblock/void arenas
-- RTP zones with countdown holograms and group teleports
+- RTP zones with countdown holograms, group teleports, an in-game browser GUI (`/rtpzone gui`), and optional air drops
 - Hologram backends: FancyHolograms, AxoHologram, PacketEvents, or Display Entities (auto-selected)
 - In-game admin dashboard (`/rtp dashboard`) to enable, disable, and tune modules live
+- Performance panel (`/rtp performance`) with live metrics and a configurable search benchmark
+- World pre-generation (`/rtp pregen`) with square/circle/ring shapes and adaptive/steady pacing, that skips already-generated chunks, harvests safe spots into the cache, and shows a live colour-coded progress map and run history
 - RTP GUI with cross-server support, auto-open, and custom items
 - Matchmaking queue for PvP duels (1v1, 2v2, team RTP)
 - Jump RTP, first-join RTP, respawn RTP, spawn-world redirect
@@ -62,17 +66,17 @@ JustRTP is a random teleport plugin for Paper, Folia, and Velocity/BungeeCord ne
 
 **Required:**
 - Java 21+
-- Paper 1.21+ or Folia 1.21+ (tested up to 26.2)
+- Paper 1.21+, Folia 1.21+, or a Folia fork such as CanvasMC (tested up to 26.2)
 
 **Optional:**
-- Vault — economy and permission groups
-- PlaceholderAPI — placeholder expansion
-- WorldGuard / GriefPrevention / Lands / SimpleClaim — region and claim protection
-- FancyHolograms — persistent, editable zone holograms
-- AxoHologram — display-based zone holograms
-- PacketEvents — packet-based holograms
-- MySQL — cross-server teleportation
-- Redis — shared cache across proxy network
+- Vault - economy and permission groups
+- PlaceholderAPI - placeholder expansion
+- WorldGuard / GriefPrevention / Lands / SimpleClaim - region and claim protection
+- FancyHolograms - persistent, editable zone holograms
+- AxoHologram - display-based zone holograms
+- PacketEvents - packet-based holograms
+- MySQL - cross-server teleportation
+- Redis - shared cache across proxy network
 
 ---
 
